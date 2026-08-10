@@ -1607,10 +1607,13 @@ async function taiDanhSachLopMon() {
 
                     namhoc: duLieu.namhoc || "",
 
-                    sisotoida: duLieu.sisotoida || 0,
+                    sisotoida: Number(
+                        duLieu.sisotoida || 0
+                    ),
 
-                    // Tạm thời, phần đăng ký ta sẽ làm sau
-                    sisodadangky: 0,
+                    sisodadangky: Number(
+                        duLieu.sisodadangky || 0
+                    ),
 
                     ngaybatdaudk:
                         duLieu.ngaybatdaudk || "",
@@ -2053,7 +2056,11 @@ courseForm.addEventListener(
                     magv: duLieuGuiDi.magv,
                     hocky: duLieuGuiDi.hocky,
                     namhoc: duLieuGuiDi.namhoc,
+
                     sisotoida: duLieuGuiDi.sisotoida,
+
+                    // Lớp mới chưa có sinh viên đăng ký
+                    sisodadangky: 0,
 
                     ngaybatdaudk:
                         duLieuGuiDi.ngaybatdaudk,
@@ -2064,6 +2071,7 @@ courseForm.addEventListener(
                     trangthai: "Mở"
                 }
             );
+
 
 
             dongModalLopMon();
