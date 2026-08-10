@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Trang giáo viên</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/giao_vien.css') }}"
+    >
+</head>
+
+<body>
+    <div class="teacher-layout teacher-dashboard">
+        <aside class="teacher-sidebar">
+            <div class="teacher-brand">
+                <div class="teacher-logo">
+                    Q
+                </div>
+
+                <div>
+                    <h2>QL Online</h2>
+                    <p>Cổng thông tin giáo viên</p>
+                </div>
+            </div>
+
+            <nav class="teacher-menu">
+                <a
+                    href="#tong-quan"
+                    id="teacher-overview-menu"
+                    class="teacher-menu-item active"
+                >
+                    Tổng quan
+                </a>
+
+                <a
+                    href="#lop-mon-phu-trach"
+                    id="teacher-classes-menu"
+                    class="teacher-menu-item"
+                >
+                    Lớp môn phụ trách
+                </a>
+            </nav>
+
+            <div class="sidebar-account">
+                <p>Đang đăng nhập</p>
+
+                <strong class="firebase-user-email">
+                    Đang tải...
+                </strong>
+
+                <button
+                    type="button"
+                    class="logout-button"
+                    id="teacher-logout-button"
+                >
+                    Đăng xuất
+                </button>
+            </div>
+        </aside>
+
+        <main class="teacher-main">
+            <header class="teacher-header">
+                <div>
+                    <span>GIÁO VIÊN</span>
+                    <h1>Cổng giảng dạy</h1>
+                </div>
+
+                <p>
+                    Xin chào,
+                    <span class="firebase-user-email">
+                        Đang tải...
+                    </span>
+                </p>
+            </header>
+
+            <section
+                id="teacher-overview-section"
+                class="teacher-section"
+            >
+                <h2>Tổng quan</h2>
+
+                <p>
+                    Thống kê nhanh hoạt động giảng dạy của bạn.
+                </p>
+
+                <div class="teacher-stats">
+                    <div class="teacher-stat-card">
+                        <span>Lớp phụ trách</span>
+
+                        <strong id="total-teacher-classes">
+                            0
+                        </strong>
+                    </div>
+
+                    <div class="teacher-stat-card">
+                        <span>Sinh viên đăng ký</span>
+
+                        <strong id="total-teacher-students">
+                            0
+                        </strong>
+                    </div>
+
+                    <div class="teacher-stat-card">
+                        <span>Lớp đang mở</span>
+
+                        <strong id="total-open-classes">
+                            0
+                        </strong>
+                    </div>
+                </div>
+            </section>
+
+            <section
+                id="teacher-classes-section"
+                class="teacher-section hidden-section"
+            >
+                <h2>Lớp môn phụ trách</h2>
+
+                <p>
+                    Danh sách các lớp môn được phân công cho bạn.
+                </p>
+
+                <div class="teacher-table-wrapper">
+                    <table class="teacher-table">
+                        <thead>
+                            <tr>
+                                <th>Mã lớp</th>
+                                <th>Môn học</th>
+                                <th>Số tín chỉ</th>
+                                <th>Học kỳ</th>
+                                <th>Năm học</th>
+                                <th>Sĩ số</th>
+                                <th>Trạng thái</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="teacher-classes-body">
+                            <tr>
+                                <td colspan="8">
+                                    Đang tải danh sách lớp môn...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div
+        class="teacher-modal-overlay hidden"
+        id="students-modal"
+    >
+        <div
+            class="teacher-modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="students-modal-title"
+        >
+            <div class="teacher-modal-header">
+                <div>
+                    <h2 id="students-modal-title">
+                        Danh sách sinh viên
+                    </h2>
+
+                    <p>
+                        <span id="students-modal-description">
+                            Sinh viên đã đăng ký lớp môn.
+                        </span>
+
+                        Tổng số:
+                        <strong id="students-modal-count">
+                            0
+                        </strong>
+                    </p>
+                </div>
+
+                <button
+                    type="button"
+                    class="teacher-modal-close"
+                    id="close-students-modal"
+                    aria-label="Đóng"
+                >
+                    ×
+                </button>
+            </div>
+
+            <div class="teacher-modal-tools">
+                <input
+                    type="text"
+                    id="student-search-input"
+                    placeholder="Tìm theo mã SV, họ tên hoặc email..."
+                    autocomplete="off"
+                >
+            </div>
+
+            <div class="teacher-table-wrapper">
+                <table class="teacher-table">
+                    <thead>
+                        <tr>
+                            <th>Mã SV</th>
+                            <th>Họ tên</th>
+                            <th>Email</th>
+                            <th>Khoa</th>
+                            <th>Ngày đăng ký</th>
+                            <th>Trạng thái</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="students-table-body">
+                        <tr>
+                            <td colspan="6">
+                                Đang tải danh sách sinh viên...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script
+        src="{{ url_for('static', filename='js/giao_vien.js') }}"
+    ></script>
+
+    <script
+        type="module"
+        src="{{ url_for('static', filename='js/giao-vien-firebase.js') }}"
+    ></script>
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Trang sinh viên</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/sinh_vien.css') }}"
+    >
+</head>
+
+<body>
+    <div class="student-page">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-logo">
+                    Q
+                </div>
+
+                <div>
+                    <h2>QL Online</h2>
+
+                    <p>
+                        Cổng thông tin sinh viên
+                    </p>
+                </div>
+            </div>
+
+            <nav class="sidebar-menu">
+                <a
+                    href="#dang-ky-mon"
+                    id="available-menu"
+                    class="menu-item active"
+                >
+                    Đăng ký môn học
+                </a>
+
+                <a
+                    href="#mon-da-dang-ky"
+                    id="registered-menu"
+                    class="menu-item"
+                >
+                    Môn đã đăng ký
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <span>
+                    Đang đăng nhập
+                </span>
+
+                <strong
+                    class="firebase-user-email"
+                ></strong>
+
+                <button
+                    type="button"
+                    id="student-logout-button"
+                    class="logout-button"
+                >
+                    Đăng xuất
+                </button>
+            </div>
+        </aside>
+
+
+        <main class="main-content">
+            <header class="top-header">
+                <div>
+                    <span class="role-label">
+                        SINH VIÊN
+                    </span>
+
+                    <h1>
+                        Cổng đăng ký môn học
+                    </h1>
+                </div>
+
+                <p>
+                    Xin chào,
+                    <span
+                        class="firebase-user-email"
+                    ></span>
+                </p>
+            </header>
+
+
+            <section
+                id="available-section"
+                class="student-section"
+            >
+                <div class="section-header">
+                    <div>
+                        <h2>
+                            Lớp môn có thể đăng ký
+                        </h2>
+
+                        <p>
+                            Chỉ hiển thị những lớp đang mở,
+                            còn thời hạn và chưa đủ sĩ số.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Mã lớp</th>
+                                <th>Môn học</th>
+                                <th>Số tín chỉ</th>
+                                <th>Giảng viên</th>
+                                <th>Học kỳ</th>
+                                <th>Sĩ số</th>
+                                <th>Hạn đăng ký</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+
+                        <tbody
+                            id="available-course-body"
+                        >
+                            <tr>
+                                <td
+                                    colspan="8"
+                                    class="table-message"
+                                >
+                                    Đang xác thực tài khoản...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+
+            <section
+                id="registered-section"
+                class="student-section hidden-section"
+            >
+                <div class="section-header">
+                    <div>
+                        <h2>
+                            Môn học đã đăng ký
+                        </h2>
+
+                        <p>
+                            Danh sách lớp môn của bạn.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Mã lớp</th>
+                                <th>Môn học</th>
+                                <th>Số tín chỉ</th>
+                                <th>Giảng viên</th>
+                                <th>Học kỳ</th>
+                                <th>Ngày đăng ký</th>
+                                <th>Trạng thái</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+
+                        <tbody
+                            id="registered-course-body"
+                        >
+                            <tr>
+                                <td
+                                    colspan="8"
+                                    class="table-message"
+                                >
+                                    Đang xác thực tài khoản...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script
+        src="{{ url_for('static', filename='js/sinh_vien.js') }}"
+    ></script>
+
+    <script
+        type="module"
+        src="{{ url_for('static', filename='js/sinhvien-firebase.js') }}"
+    ></script>
+</body>
+</html>

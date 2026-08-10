@@ -1,0 +1,677 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+
+html {
+    scroll-behavior: smooth;
+}
+
+
+body {
+    min-height: 100vh;
+
+    background: #f1f5f9;
+    color: #0f172a;
+
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+}
+
+
+/* =========================
+   BỐ CỤC CHÍNH
+========================= */
+
+.teacher-layout {
+    min-height: 100vh;
+}
+
+
+.teacher-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+
+    width: 325px;
+    padding: 28px 22px;
+
+    display: flex;
+    flex-direction: column;
+
+    background: #0f172a;
+    color: #ffffff;
+}
+
+
+.teacher-main {
+    min-height: 100vh;
+    margin-left: 325px;
+    padding: 36px;
+
+    background: #f1f5f9;
+}
+
+
+/* =========================
+   THƯƠNG HIỆU
+========================= */
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+
+    padding: 2px 12px 28px;
+    border-bottom: 1px solid #263449;
+}
+
+
+.brand-logo {
+    width: 54px;
+    height: 54px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+
+    background: #4f6ff7;
+    border-radius: 16px;
+
+    font-size: 22px;
+    font-weight: 800;
+}
+
+
+.brand h2 {
+    margin-bottom: 5px;
+
+    font-size: 20px;
+    color: #ffffff;
+}
+
+
+.brand p {
+    color: #94a3b8;
+    font-size: 14px;
+}
+
+
+/* =========================
+   MENU
+========================= */
+
+.teacher-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    margin-top: 30px;
+}
+
+
+.teacher-menu-item {
+    display: block;
+    padding: 16px 17px;
+
+    color: #e2e8f0;
+    border-radius: 12px;
+
+    font-size: 16px;
+    font-weight: 700;
+    text-decoration: none;
+
+    transition:
+        background 0.2s,
+        color 0.2s;
+}
+
+
+.teacher-menu-item:hover {
+    background: #1e293b;
+    color: #ffffff;
+}
+
+
+.teacher-menu-item.active {
+    background: #2f67e9;
+    color: #ffffff;
+}
+
+
+/* =========================
+   TÀI KHOẢN VÀ ĐĂNG XUẤT
+========================= */
+
+.sidebar-account {
+    margin-top: auto;
+    padding: 24px 12px 0;
+
+    border-top: 1px solid #263449;
+}
+
+
+.sidebar-account p {
+    margin-bottom: 8px;
+
+    color: #94a3b8;
+    font-size: 14px;
+}
+
+
+.sidebar-account strong {
+    display: block;
+    margin-bottom: 20px;
+
+    color: #ffffff;
+    font-size: 15px;
+
+    overflow-wrap: anywhere;
+}
+
+
+.sidebar-account form {
+    width: 100%;
+}
+
+
+.sidebar-account button {
+    width: 100%;
+    padding: 14px;
+
+    background: transparent;
+    color: #fecaca;
+
+    border: 1px solid #dc2626;
+    border-radius: 11px;
+
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 700;
+
+    cursor: pointer;
+}
+
+
+.sidebar-account button:hover {
+    background: #7f1d1d;
+    color: #ffffff;
+}
+
+
+/* =========================
+   HEADER
+========================= */
+
+.teacher-header {
+    min-height: 110px;
+    padding: 26px 30px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+
+    background: #ffffff;
+    border: 1px solid #dbe3ee;
+    border-radius: 22px;
+
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+}
+
+
+.teacher-header span {
+    display: block;
+    margin-bottom: 7px;
+
+    color: #2563eb;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 2px;
+}
+
+
+.teacher-header h1 {
+    color: #0f172a;
+    font-size: 30px;
+}
+
+
+.teacher-header > p {
+    color: #64748b;
+    font-size: 16px;
+}
+
+
+/* =========================
+   SECTION
+========================= */
+
+.teacher-section {
+    min-height: 500px;
+    margin-top: 30px;
+    padding: 34px 36px;
+
+    background: #ffffff;
+    border: 1px solid #dbe3ee;
+    border-radius: 22px;
+
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+}
+
+
+.teacher-section h2 {
+    margin-bottom: 10px;
+
+    color: #0f172a;
+    font-size: 27px;
+}
+
+
+.teacher-section > p {
+    color: #64748b;
+    font-size: 17px;
+    line-height: 1.6;
+}
+
+
+.teacher-section.hidden-section {
+    display: none;
+}
+
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 800px) {
+    .teacher-sidebar {
+        position: static;
+
+        width: 100%;
+        min-height: auto;
+    }
+
+
+    .teacher-main {
+        margin-left: 0;
+        padding: 24px;
+    }
+
+
+    .sidebar-account {
+        margin-top: 32px;
+    }
+
+
+    .teacher-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+
+@media (max-width: 520px) {
+    .teacher-main {
+        padding: 15px;
+    }
+
+
+    .teacher-sidebar {
+        padding: 22px 16px;
+    }
+
+
+    .teacher-header,
+    .teacher-section {
+        padding: 25px 22px;
+        border-radius: 17px;
+    }
+
+
+    .teacher-header h1 {
+        font-size: 25px;
+    }
+
+
+    .teacher-section h2 {
+        font-size: 23px;
+    }
+}
+
+
+
+
+
+/* =========================
+   BẢNG LỚP MÔN
+========================= */
+
+.teacher-table-wrapper {
+    width: 100%;
+    margin-top: 28px;
+
+    overflow-x: auto;
+
+    border: 1px solid #dbe3ee;
+    border-radius: 16px;
+}
+
+
+.teacher-table {
+    width: 100%;
+    min-width: 950px;
+
+    border-collapse: collapse;
+}
+
+
+.teacher-table th,
+.teacher-table td {
+    padding: 17px 18px;
+
+    text-align: left;
+    vertical-align: middle;
+
+    border-bottom: 1px solid #dbe3ee;
+}
+
+
+.teacher-table th {
+    background: #f8fafc;
+
+    color: #334155;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+
+.teacher-table td {
+    color: #1e293b;
+
+    font-size: 15px;
+}
+
+
+.teacher-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+
+.teacher-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+
+/* Môn học cần nhiều chỗ hơn */
+.teacher-table th:nth-child(2),
+.teacher-table td:nth-child(2) {
+    min-width: 190px;
+}
+
+
+/* Không xuống dòng ở các cột ngắn */
+.teacher-table th:not(:nth-child(2)),
+.teacher-table td:not(:nth-child(2)) {
+    white-space: nowrap;
+}
+
+
+
+
+/* Trạng thái lớp */
+.teacher-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 7px 13px;
+
+    border-radius: 999px;
+
+    font-size: 13px;
+    font-weight: 700;
+}
+
+
+.teacher-status.status-open {
+    background: #ecfdf5;
+    color: #047857;
+
+    border: 1px solid #a7f3d0;
+}
+
+
+.teacher-status.status-closed {
+    background: #fef2f2;
+    color: #dc2626;
+
+    border: 1px solid #fecaca;
+}
+
+
+/* Nút xem sinh viên */
+.view-students-button {
+    padding: 9px 14px;
+
+    background: #ffffff;
+    color: #2563eb;
+
+    border: 1px solid #93c5fd;
+    border-radius: 9px;
+
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+
+.view-students-button:hover {
+    background: #eff6ff;
+    border-color: #60a5fa;
+}
+
+
+
+.teacher-modal-overlay.hidden {
+    display: none;
+}
+
+
+
+/* =========================
+   MODAL DANH SÁCH SINH VIÊN
+========================= */
+
+.teacher-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 30px;
+
+    background: rgba(15, 23, 42, 0.65);
+}
+
+
+.teacher-modal-overlay.hidden {
+    display: none;
+}
+
+
+.teacher-modal-card {
+    width: min(1100px, 100%);
+    max-height: 85vh;
+
+    padding: 32px 34px;
+
+    overflow-y: auto;
+
+    background: #ffffff;
+
+    border: 1px solid #dbe3ee;
+    border-radius: 22px;
+
+    box-shadow:
+        0 25px 60px rgba(15, 23, 42, 0.25);
+}
+
+
+/* Header modal */
+
+.teacher-modal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+
+.teacher-modal-header h2 {
+    margin-bottom: 8px;
+
+    color: #0f172a;
+    font-size: 26px;
+}
+
+
+.teacher-modal-header p {
+    color: #64748b;
+    font-size: 16px;
+}
+
+
+/* Nút X */
+
+.teacher-modal-close {
+    width: 46px;
+    height: 46px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+
+    background: #f1f5f9;
+    color: #64748b;
+
+    border: none;
+    border-radius: 12px;
+
+    font-family: inherit;
+    font-size: 25px;
+    font-weight: 700;
+
+    cursor: pointer;
+}
+
+
+.teacher-modal-close:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+
+/* Bảng nằm trong modal */
+
+.teacher-modal-card .teacher-table-wrapper {
+    margin-top: 26px;
+}
+
+
+/* Màn hình nhỏ */
+
+@media (max-width: 700px) {
+    .teacher-modal-overlay {
+        padding: 15px;
+    }
+
+
+    .teacher-modal-card {
+        padding: 25px 20px;
+        border-radius: 17px;
+    }
+
+
+    .teacher-modal-header h2 {
+        font-size: 22px;
+    }
+}
+
+
+
+.teacher-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 20px;
+    margin-top: 28px;
+}
+
+.teacher-stat-card {
+    padding: 24px;
+
+    background: #f8fafc;
+    border: 1px solid #dbe3ee;
+    border-radius: 16px;
+}
+
+.teacher-stat-card span {
+    display: block;
+
+    margin-bottom: 12px;
+
+    color: #64748b;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.teacher-stat-card strong {
+    display: block;
+
+    color: #2563eb;
+    font-size: 34px;
+    font-weight: 700;
+}
+
+
+
+.teacher-modal-tools {
+    margin-top: 20px;
+}
+
+.teacher-modal-tools input {
+    width: 100%;
+    padding: 13px 16px;
+
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+
+    font-size: 15px;
+    color: #1e293b;
+    background: #f8fafc;
+    outline: none;
+}
+
+.teacher-modal-tools input:focus {
+    border-color: #2563eb;
+
+    box-shadow: 0 0 0 3px
+        rgba(37, 99, 235, 0.12);
+
+    background: white;
+}
