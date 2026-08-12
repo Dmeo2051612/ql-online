@@ -68,7 +68,11 @@ assertAnswer("Gợi ý lớp thứ tư buổi chiều", ["LM004"], ["LM002"]);
 assertAnswer("Gợi ý lớp t4 từ 2 giờ chiều đến 5 giờ chiều", ["LM004"], ["LM002"]);
 assertAnswer("cho tôi xem thời khóa biểu hiện tại", ["OLD1"]);
 assertAnswer("tại sao tôi không thấy lớp?", ["chỉ hiện lớp đang mở"]);
-console.log("STUDENT_AI_INTENTS_OK: 15 scenarios");
+aiNguCanh.dangLapThoiKhoaBieu = true;
+aiNguCanh.yeuCauLapLich = "lap thoi khoa bieu truoc do";
+assertAnswer("sáng thứ 2 từ 7 giờ tới 10 giờ sáng", ["LM002", "Thứ 2", "07:00–10:00"], ["LM001", "Phương án"]);
+assertAnswer("còn thứ 3 thì sao, giờ vẫn vậy", ["LM001", "Thứ 3", "07:00–10:00"], ["LM002", "Phương án"]);
+console.log("STUDENT_AI_INTENTS_OK: 17 scenarios");
 `;
 
 vm.runInNewContext(fs.readFileSync("static/js/sinh_vien.js", "utf8") + testCode, context);
