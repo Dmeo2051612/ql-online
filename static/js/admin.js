@@ -1,5 +1,4 @@
-
-
+import { passwordPolicyError } from "./password-policy.js";
 
 // ===========================
 // TOAST & CONFIRM SYSTEM
@@ -48,7 +47,6 @@ function xacNhan(noiDung) {
     return new Promise(function (resolve) {
         const overlay = document.createElement("div");
         overlay.className = "confirm-overlay";
-import { passwordPolicyError } from "./password-policy.js";
         const card = document.createElement("div");
         card.className = "confirm-card";
         card.setAttribute("role", "alertdialog");
