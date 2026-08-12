@@ -14,17 +14,3 @@ services:
         value: "0"
       - key: FIREBASE_SERVICE_ACCOUNT
         value: /etc/secrets/firebase-service-account.json
-      - key: OTP_SECRET
-        generateValue: true
-      - key: SMTP_HOST
-        value: smtp.gmail.com
-      - key: SMTP_PORT
-        value: "587"
-      - key: SMTP_USE_TLS
-        value: "1"
-      - key: SMTP_USER
-        sync: false
-      - key: SMTP_APP_PASSWORD
-        sync: false
-      - key: SMTP_FROM
-        sync: false

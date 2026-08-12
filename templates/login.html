@@ -105,7 +105,7 @@
                 >
                     <h2 id="forgot-password-title">Đặt lại mật khẩu</h2>
                     <p>
-                        Hệ thống sẽ gửi mã OTP 6 số tới email đã đăng ký.
+                        Firebase sẽ gửi liên kết đặt lại mật khẩu tới email đã đăng ký.
                     </p>
 
                     <form id="forgot-password-form" novalidate>
@@ -119,45 +119,6 @@
                                 autocomplete="email"
                                 required
                             >
-                        </div>
-
-                        <div class="reset-confirm-fields hidden" id="reset-confirm-fields">
-                            <div class="form-group">
-                                <label for="reset-code">Mã xác nhận</label>
-                                <input
-                                    type="text"
-                                    id="reset-code"
-                                    inputmode="numeric"
-                                    maxlength="6"
-                                    pattern="[0-9]{6}"
-                                    placeholder="Nhập mã OTP 6 số"
-                                    autocomplete="one-time-code"
-                                >
-                            </div>
-
-                            <div class="form-group">
-                                <label for="reset-new-password">Mật khẩu mới</label>
-                                <input
-                                    type="password"
-                                    id="reset-new-password"
-                                    minlength="12"
-                                    maxlength="128"
-                                    placeholder="Ít nhất 12 ký tự"
-                                    autocomplete="new-password"
-                                >
-                            </div>
-
-                            <div class="form-group">
-                                <label for="reset-confirm-password">Nhập lại mật khẩu</label>
-                                <input
-                                    type="password"
-                                    id="reset-confirm-password"
-                                    minlength="12"
-                                    maxlength="128"
-                                    placeholder="Nhập lại mật khẩu mới"
-                                    autocomplete="new-password"
-                                >
-                            </div>
                         </div>
 
                         <p id="reset-password-message" role="status"></p>
@@ -176,7 +137,7 @@
                                 class="forgot-submit-button"
                                 id="send-reset-email"
                             >
-                                <span id="reset-button-text">Gửi mã xác nhận</span>
+                                <span id="reset-button-text">Gửi liên kết đặt lại</span>
                                 <span class="btn-spinner hidden" id="reset-spinner"></span>
                             </button>
                         </div>
@@ -186,6 +147,6 @@
         </div>
 
         <script src="/static/js/login-ui.js" defer></script>
-        <script type="module" src="/static/js/login-firebase.js?v=6"></script>
+        <script type="module" src="/static/js/login-firebase.js?v=7"></script>
     </body>
 </html>

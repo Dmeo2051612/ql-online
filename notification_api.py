@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from flask import Blueprint, Response, jsonify, request, stream_with_context
 from firebase_admin import firestore
 
-from password_reset import get_firebase_auth
+from firebase_admin_config import get_firebase_auth
 
 
 notification_api_bp = Blueprint("notification_api", __name__)

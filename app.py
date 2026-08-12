@@ -7,12 +7,10 @@ try:
 except ImportError:
     pass
 
-from password_reset import password_reset_bp
 from notification_api import notification_api_bp
 
 
 app = Flask(__name__)
-app.register_blueprint(password_reset_bp)
 app.register_blueprint(notification_api_bp)
 
 

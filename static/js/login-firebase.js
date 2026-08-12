@@ -5,9 +5,9 @@ import { doc, getDoc }
     from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
 
 import {
+    sendPasswordResetEmail,
     signInWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
-import { passwordPolicyError } from "./password-policy.js";
 
 
 const loginForm = document.getElementById("login-form");
@@ -24,10 +24,6 @@ const resetMessage = document.getElementById("reset-password-message");
 const resetButton = document.getElementById("send-reset-email");
 const resetButtonText = document.getElementById("reset-button-text");
 const resetSpinner = document.getElementById("reset-spinner");
-const resetConfirmFields = document.getElementById("reset-confirm-fields");
-const resetCodeInput = document.getElementById("reset-code");
-const resetNewPasswordInput = document.getElementById("reset-new-password");
-const resetConfirmPasswordInput = document.getElementById("reset-confirm-password");
 const cancelForgotPasswordButton = document.getElementById("cancel-forgot-password");
 const lockoutSupport = document.getElementById("lockout-support");
 const openLockoutContact = document.getElementById("open-lockout-contact");
@@ -46,7 +42,6 @@ const THOI_GIAN_KHOA = 15 * 60 * 1000;
 
 let dangXuLyDangNhap = false;
 let boDemKhoaDangNhap = null;
-let dangXacNhanOtp = false;
 let boDemKiemTraMoKhoa = null;
 
 
@@ -467,32 +462,8 @@ loginForm.addEventListener("submit", async function (event) {
 
 function setResetLoading(dang) {
     resetButton.disabled = dang;
-    resetButtonText.textContent = dang
-        ? (dangXacNhanOtp ? "Đang đổi mật khẩu..." : "Đang gửi mã...")
-        : (dangXacNhanOtp ? "Xác nhận và đổi mật khẩu" : "Gửi mã xác nhận");
+    resetButtonText.textContent = dang ? "Đang gửi liên kết..." : "Gửi liên kết đặt lại";
     resetSpinner.classList.toggle("hidden", !dang);
-}
-
-
-async function goiApiReset(url, payload) {
-    const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        throw new Error(data.error || "Không thể xử lý yêu cầu.");
-    }
-    return data;
-}
-
-
-function datBuocOtp(dangXacNhan) {
-    dangXacNhanOtp = dangXacNhan;
-    resetConfirmFields.classList.toggle("hidden", !dangXacNhan);
-    resetEmailInput.readOnly = dangXacNhan;
-    setResetLoading(false);
 }
 
 
@@ -511,58 +482,24 @@ forgotPasswordForm.addEventListener("submit", async function (event) {
         return;
     }
 
-    if (dangXacNhanOtp) {
-        const code = resetCodeInput.value.trim();
-        const password = resetNewPasswordInput.value;
-        const confirmation = resetConfirmPasswordInput.value;
-
-        if (!/^\d{6}$/.test(code)) {
-            resetMessage.className = "message-error";
-            resetMessage.textContent = "Mã xác nhận phải gồm 6 chữ số.";
-            resetCodeInput.focus();
-            return;
-        }
-        const passwordError = passwordPolicyError(password, email);
-        if (passwordError) {
-            resetMessage.className = "message-error";
-            resetMessage.textContent = passwordError;
-            resetNewPasswordInput.focus();
-            return;
-        }
-        if (password !== confirmation) {
-            resetMessage.className = "message-error";
-            resetMessage.textContent = "Hai lần nhập mật khẩu chưa khớp.";
-            resetConfirmPasswordInput.focus();
-            return;
-        }
-    }
-
     setResetLoading(true);
 
     try {
-        if (!dangXacNhanOtp) {
-            await goiApiReset("/api/password-reset/request", { email });
-            datBuocOtp(true);
-            resetMessage.className = "message-success";
-            resetMessage.textContent =
-                "Nếu email đã đăng ký, mã OTP đã được gửi. Mã có hiệu lực 10 phút.";
-            resetCodeInput.focus();
-        } else {
-            await goiApiReset("/api/password-reset/confirm", {
-                email,
-                code: resetCodeInput.value.trim(),
-                password: resetNewPasswordInput.value
-            });
-            resetMessage.className = "message-success";
-            resetMessage.textContent = "Đổi mật khẩu thành công. Bạn có thể đăng nhập ngay.";
-            resetCodeInput.value = "";
-            resetNewPasswordInput.value = "";
-            resetConfirmPasswordInput.value = "";
-        }
+        await sendPasswordResetEmail(auth, email);
+        resetMessage.className = "message-success";
+        resetMessage.textContent = "Nếu email đã đăng ký, Firebase đã gửi liên kết đặt lại mật khẩu. Hãy kiểm tra cả thư rác.";
     } catch (loi) {
         console.error("Không thể đặt lại mật khẩu:", loi);
-        resetMessage.className = "message-error";
-        resetMessage.textContent = loi.message || "Không thể xử lý yêu cầu.";
+        const code = String(loi?.code || "");
+        if (code.includes("user-not-found")) {
+            resetMessage.className = "message-success";
+            resetMessage.textContent = "Nếu email đã đăng ký, Firebase đã gửi liên kết đặt lại mật khẩu. Hãy kiểm tra cả thư rác.";
+        } else {
+            resetMessage.className = "message-error";
+            resetMessage.textContent = code.includes("too-many-requests")
+                ? "Bạn đã yêu cầu quá nhiều lần. Vui lòng thử lại sau."
+                : "Không thể gửi liên kết đặt lại mật khẩu. Vui lòng thử lại.";
+        }
     } finally {
         setResetLoading(false);
     }
@@ -573,7 +510,6 @@ cancelForgotPasswordButton?.addEventListener("click", function () {
     forgotPasswordForm.reset();
     resetMessage.className = "";
     resetMessage.textContent = "";
-    datBuocOtp(false);
 });
 
 
