@@ -12,7 +12,7 @@
 
     <link
         rel="stylesheet"
-        href="{{ url_for('static', filename='css/sinh_vien.css') }}?v=8"
+        href="{{ url_for('static', filename='css/sinh_vien.css') }}?v=9"
     >
     <link rel="stylesheet" href="{{ url_for('static', filename='css/portal-shell.css') }}?v=5">
 </head>
@@ -287,18 +287,19 @@
         </header>
         <div id="ai-chat-messages" class="ai-chat-messages" aria-live="polite"></div>
         <div class="ai-chat-suggestions">
+            <button type="button" data-ai-question="Lập thời khóa biểu 4 môn học kỳ 1 năm nay, không trùng lịch">Lập thời khóa biểu</button>
             <button type="button" data-ai-question="Gợi ý lớp thứ 5 từ 7h đến 10h học kỳ 1 năm nay">Gợi ý lớp phù hợp</button>
             <button type="button" data-ai-question="Hôm nay tôi học môn gì?">Lịch hôm nay</button>
             <button type="button" data-ai-question="Tôi đã đăng ký bao nhiêu tín chỉ?">Tổng tín chỉ</button>
         </div>
         <form id="ai-chat-form" class="ai-chat-form">
-            <input id="ai-chat-input" type="text" maxlength="240" autocomplete="off" placeholder="Hỏi về lịch học, lớp môn..." required>
+            <input id="ai-chat-input" type="text" maxlength="500" autocomplete="off" placeholder="Nhập môn, giảng viên hoặc yêu cầu xếp lịch..." required>
             <button type="submit" aria-label="Gửi">➤</button>
         </form>
     </aside>
 
     <script
-        src="{{ url_for('static', filename='js/sinh_vien.js') }}?v=9"
+        src="{{ url_for('static', filename='js/sinh_vien.js') }}?v=10"
     ></script>
 
     <script

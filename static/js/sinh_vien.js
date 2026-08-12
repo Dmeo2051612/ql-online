@@ -2140,6 +2140,10 @@ const aiChatMessages = document.getElementById("ai-chat-messages");
 const aiChatForm = document.getElementById("ai-chat-form");
 const aiChatInput = document.getElementById("ai-chat-input");
 let aiDaChao = false;
+const aiNguCanh = {
+    dangLapThoiKhoaBieu: false,
+    yeuCauLapLich: ""
+};
 
 function themTinNhanAI(noiDung, vaiTro = "assistant", laHtml = false) {
     if (!aiChatMessages) return null;
@@ -2153,7 +2157,8 @@ function themTinNhanAI(noiDung, vaiTro = "assistant", laHtml = false) {
 }
 
 function docKhoangGio(cauHoi) {
-    const ketQua = cauHoi.match(/(\d{1,2})(?:[:h](\d{1,2})?)?\s*(?:-|den|toi)\s*(\d{1,2})(?:[:h](\d{1,2})?)?/);
+    const daChuanHoa = cauHoi.replace(/(\d{1,2})\s*gio(?:\s*(\d{1,2}))?/g, (_, gio, phut = "") => `${gio}h${phut}`);
+    const ketQua = daChuanHoa.match(/(\d{1,2})(?:[:h](\d{1,2})?)?\s*(?:-|den|toi)\s*(\d{1,2})(?:[:h](\d{1,2})?)?/);
     if (!ketQua) return null;
     const batDau = Number(ketQua[1]) * 60 + Number(ketQua[2] || 0);
     const ketThuc = Number(ketQua[3]) * 60 + Number(ketQua[4] || 0);
@@ -2168,7 +2173,261 @@ function phutTuGio(gio) {
 function docThu(cauHoi) {
     if (cauHoi.includes("chu nhat")) return 8;
     const ketQua = cauHoi.match(/thu\s*([2-7])/);
-    return ketQua ? Number(ketQua[1]) : null;
+    if (ketQua) return Number(ketQua[1]);
+    const thuBangChu = [
+        ["thu hai", 2], ["thu ba", 3], ["thu tu", 4],
+        ["thu nam", 5], ["thu sau", 6], ["thu bay", 7]
+    ];
+    return thuBangChu.find(([ten]) => cauHoi.includes(ten))?.[1] || null;
+}
+
+function docHocKyVaNamHoc(cauHoi) {
+    const hocKyMatch = cauHoi.match(/hoc k[yi]\s*([1-3])/);
+    const namMatch = cauHoi.match(/nam(?: hoc)?\s*(20\d{2})/);
+    return {
+        hocKy: hocKyMatch ? Number(hocKyMatch[1]) : null,
+        namHoc: cauHoi.includes("nam nay")
+            ? new Date().getFullYear()
+            : (namMatch ? Number(namMatch[1]) : null)
+    };
+}
+
+function layCacMonDuocNhac(cauHoi) {
+    const danhMuc = new Map();
+    const cacTuTrongCau = new Set(cauHoi.split(/[^a-z0-9]+/).filter(Boolean));
+    const tuChung = new Set(["mon", "hoc", "lap", "trinh", "nhap", "co", "ban", "dai", "cuong"]);
+    [...danhSachLopMonCoTheDangKy, ...danhSachMonDaDangKy].forEach((lop) => {
+        const maMon = String(lop.mamon || "").trim();
+        if (maMon && !danhMuc.has(maMon)) danhMuc.set(maMon, lop);
+    });
+
+    return [...danhMuc.values()].map((lop) => {
+        const cacNhan = [lop.tenmon, lop.mamon]
+            .map(chuanHoaTimKiem)
+            .filter((nhan) => nhan.length >= 2);
+        const cacTuDacTrung = chuanHoaTimKiem(lop.tenmon).split(/[^a-z0-9]+/)
+            .filter((tu) => tu.length >= 3 && !tuChung.has(tu) && cacTuTrongCau.has(tu));
+        const viTriNhan = cacNhan.reduce((ganNhat, nhan) => {
+            const ketQua = cauHoi.indexOf(nhan);
+            return ketQua >= 0 ? Math.min(ganNhat, ketQua) : ganNhat;
+        }, Infinity);
+        const viTriTu = cacTuDacTrung.reduce((ganNhat, tu) => Math.min(ganNhat, cauHoi.indexOf(tu)), Infinity);
+        const viTri = Math.min(viTriNhan, viTriTu);
+        return { lop, viTri };
+    }).filter((muc) => Number.isFinite(muc.viTri));
+}
+
+function layCacGiaoVienDuocNhac(cauHoi) {
+    const danhMuc = new Map();
+    const cacTuTrongCau = new Set(cauHoi.split(/[^a-z0-9]+/).filter(Boolean));
+    const tuXungHo = new Set(["co", "thay", "giang", "vien"]);
+    [...danhSachLopMonCoTheDangKy, ...danhSachMonDaDangKy].forEach((lop) => {
+        const maGiaoVien = String(lop.magv || "").trim();
+        if (maGiaoVien && !danhMuc.has(maGiaoVien)) danhMuc.set(maGiaoVien, lop);
+    });
+
+    return [...danhMuc.values()].map((lop) => {
+        const cacNhan = [lop.tengiaovien, lop.magv]
+            .map(chuanHoaTimKiem)
+            .filter((nhan) => nhan.length >= 2);
+        const cacTuTrongTen = chuanHoaTimKiem(lop.tengiaovien).split(/[^a-z0-9]+/)
+            .filter((tu) => tu.length >= 3 && !tuXungHo.has(tu) && cacTuTrongCau.has(tu));
+        const viTriNhan = cacNhan.reduce((ganNhat, nhan) => {
+            const ketQua = cauHoi.indexOf(nhan);
+            return ketQua >= 0 ? Math.min(ganNhat, ketQua) : ganNhat;
+        }, Infinity);
+        const viTriTu = cacTuTrongTen.reduce((ganNhat, tu) => Math.min(ganNhat, cauHoi.indexOf(tu)), Infinity);
+        const viTri = Math.min(viTriNhan, viTriTu);
+        return { lop, viTri };
+    }).filter((muc) => Number.isFinite(muc.viTri));
+}
+
+function lopMonCoLichDayDu(lop) {
+    return Number(lop?.thu) >= 2
+        && Number(lop?.thu) <= 8
+        && phutTuGio(lop?.giobatdau) >= 0
+        && phutTuGio(lop?.gioketthuc) > phutTuGio(lop?.giobatdau);
+}
+
+function lopKhongTrungDanhSach(lop, danhSach) {
+    return danhSach.every((lopDaChon) => !haiLichHocTrungNhau(lop, lopDaChon));
+}
+
+function diemUuTienLop(lop) {
+    const conLai = Math.max(0, Number(lop.sisotoida || 0) - Number(lop.sisodadangky || 0));
+    return conLai * 10 - phutTuGio(lop.giobatdau) / 1000;
+}
+
+function taoHtmlPhuongAnLich(danhSach, viTri) {
+    const daSapXep = [...danhSach].sort((a, b) => Number(a.thu) - Number(b.thu)
+        || phutTuGio(a.giobatdau) - phutTuGio(b.giobatdau));
+    const tongTinChi = daSapXep.reduce((tong, lop) => tong + Number(lop.sotinchi || 0), 0);
+    return `<section class="ai-schedule-plan">
+        <div class="ai-plan-heading"><strong>Phương án ${viTri + 1}</strong><span>${daSapXep.length} môn · ${tongTinChi} tín chỉ</span></div>
+        ${daSapXep.map(taoTheGoiYLop).join("")}
+        <small class="ai-plan-safe">✓ Không trùng với lịch đã đăng ký và không trùng nhau.</small>
+    </section>`;
+}
+
+function lapThoiKhoaBieu(cauHoi) {
+    const laYeuCauMoi = /(?:lap|xep|tao|len).*(?:thoi khoa bieu|tkb|lich hoc)/.test(cauHoi)
+        || /(?:thoi khoa bieu|tkb).*(?:cho toi|giup toi|phu hop)/.test(cauHoi);
+    aiNguCanh.yeuCauLapLich = laYeuCauMoi || !aiNguCanh.yeuCauLapLich
+        ? cauHoi
+        : `${aiNguCanh.yeuCauLapLich} ${cauHoi}`;
+    const yeuCau = aiNguCanh.yeuCauLapLich;
+
+    if (!danhSachLopMonCoTheDangKy.length) {
+        aiNguCanh.dangLapThoiKhoaBieu = true;
+        return "Hiện chưa có lớp đủ điều kiện để xếp lịch. Bạn hãy bấm Làm mới danh sách lớp rồi thử lại.";
+    }
+
+    const { hocKy, namHoc } = docHocKyVaNamHoc(yeuCau);
+    const thuRanh = docThu(yeuCau);
+    const khoangGio = docKhoangGio(yeuCau);
+    const monDuocNhac = layCacMonDuocNhac(yeuCau);
+    const giaoVienDuocNhac = layCacGiaoVienDuocNhac(yeuCau);
+    const maMonDaDangKy = new Set(danhSachMonDaDangKy.map((lop) => String(lop.mamon || "").trim()));
+    const soMonMatch = yeuCau.match(/(\d{1,2})\s*(?:mon|lop)\b/);
+    const tinChiMatch = yeuCau.match(/(\d{1,2})\s*tin chi\b/);
+    const soMonMucTieu = Math.min(8, Math.max(1, soMonMatch ? Number(soMonMatch[1]) : 4));
+    const tinChiMucTieu = tinChiMatch ? Number(tinChiMatch[1]) : null;
+
+    const monDaCo = monDuocNhac.filter(({ lop }) => maMonDaDangKy.has(String(lop.mamon || "").trim()));
+    const monCanXep = monDuocNhac.filter(({ lop }) => !maMonDaDangKy.has(String(lop.mamon || "").trim()));
+    if (monDuocNhac.length && !monCanXep.length) {
+        aiNguCanh.dangLapThoiKhoaBieu = true;
+        return `Các môn bạn yêu cầu (${monDaCo.map(({ lop }) => lop.tenmon).join(", ")}) đã được đăng ký nên mình không xếp lại lần nữa.`;
+    }
+
+    let ungVien = danhSachLopMonCoTheDangKy.filter((lop) => lopMonCoLichDayDu(lop)
+        && !maMonDaDangKy.has(String(lop.mamon || "").trim())
+        && (!hocKy || Number(lop.hocky) === hocKy)
+        && (!namHoc || Number(lop.namhoc) === namHoc)
+        && (!thuRanh || Number(lop.thu) === thuRanh)
+        && (!khoangGio || (phutTuGio(lop.giobatdau) >= khoangGio.batDau
+            && phutTuGio(lop.gioketthuc) <= khoangGio.ketThuc))
+        && lopKhongTrungDanhSach(lop, danhSachMonDaDangKy));
+
+    const rangBuocGiaoVien = new Map();
+    if (monCanXep.length) {
+        giaoVienDuocNhac.forEach((giaoVien) => {
+            const monGanNhat = monCanXep.reduce((ganNhat, mon) => (
+                Math.abs(mon.viTri - giaoVien.viTri) < Math.abs(ganNhat.viTri - giaoVien.viTri) ? mon : ganNhat
+            ));
+            const maMon = String(monGanNhat.lop.mamon || "").trim();
+            if (!rangBuocGiaoVien.has(maMon)) rangBuocGiaoVien.set(maMon, new Set());
+            rangBuocGiaoVien.get(maMon).add(String(giaoVien.lop.magv || "").trim());
+        });
+    } else if (giaoVienDuocNhac.length) {
+        const cacMaGiaoVien = new Set(giaoVienDuocNhac.map(({ lop }) => String(lop.magv || "").trim()));
+        ungVien = ungVien.filter((lop) => cacMaGiaoVien.has(String(lop.magv || "").trim()));
+    }
+
+    if (monCanXep.length && rangBuocGiaoVien.size) {
+        ungVien = ungVien.filter((lop) => {
+            const cacMaGiaoVien = rangBuocGiaoVien.get(String(lop.mamon || "").trim());
+            return !cacMaGiaoVien || cacMaGiaoVien.has(String(lop.magv || "").trim());
+        });
+    }
+
+    /* Một thời khóa biểu chỉ thuộc một học kỳ/năm học. */
+    if (ungVien.length && (!hocKy || !namHoc)) {
+        const maMonBatBuoc = new Set(monCanXep.map(({ lop }) => String(lop.mamon || "").trim()));
+        const thongKeKy = new Map();
+        ungVien.forEach((lop) => {
+            const khoa = `${Number(lop.hocky)}|${Number(lop.namhoc)}`;
+            if (!thongKeKy.has(khoa)) thongKeKy.set(khoa, { cacMaMon: new Set(), soLop: 0 });
+            const thongKe = thongKeKy.get(khoa);
+            thongKe.cacMaMon.add(String(lop.mamon || "").trim());
+            thongKe.soLop += 1;
+        });
+        const kyTotNhat = [...thongKeKy.entries()].sort((a, b) => {
+            const doPhuA = maMonBatBuoc.size
+                ? [...maMonBatBuoc].filter((maMon) => a[1].cacMaMon.has(maMon)).length
+                : a[1].cacMaMon.size;
+            const doPhuB = maMonBatBuoc.size
+                ? [...maMonBatBuoc].filter((maMon) => b[1].cacMaMon.has(maMon)).length
+                : b[1].cacMaMon.size;
+            return doPhuB - doPhuA || b[1].soLop - a[1].soLop;
+        })[0]?.[0];
+        if (kyTotNhat) {
+            const [hocKyDuocChon, namHocDuocChon] = kyTotNhat.split("|").map(Number);
+            ungVien = ungVien.filter((lop) => Number(lop.hocky) === hocKyDuocChon
+                && Number(lop.namhoc) === namHocDuocChon);
+        }
+    }
+
+    const nhomTheoMon = new Map();
+    ungVien.forEach((lop) => {
+        const maMon = String(lop.mamon || "").trim();
+        if (!nhomTheoMon.has(maMon)) nhomTheoMon.set(maMon, []);
+        nhomTheoMon.get(maMon).push(lop);
+    });
+    nhomTheoMon.forEach((cacLop) => cacLop.sort((a, b) => diemUuTienLop(b) - diemUuTienLop(a)));
+
+    let cacNhom;
+    if (monCanXep.length) {
+        cacNhom = monCanXep.map(({ lop }) => {
+            const maMon = String(lop.mamon || "").trim();
+            const cacMaGiaoVien = rangBuocGiaoVien.get(maMon);
+            const cacLop = (nhomTheoMon.get(maMon) || []).filter((muc) => !cacMaGiaoVien
+                || cacMaGiaoVien.has(String(muc.magv || "").trim()));
+            return { maMon, tenMon: lop.tenmon, cacLop };
+        });
+        const nhomKhongCoLop = cacNhom.find((nhom) => !nhom.cacLop.length);
+        if (nhomKhongCoLop) {
+            aiNguCanh.dangLapThoiKhoaBieu = true;
+            return `Mình chưa tìm được lớp hợp lệ cho môn ${nhomKhongCoLop.tenMon} theo đúng giảng viên, học kỳ hoặc thời gian bạn yêu cầu.`;
+        }
+    } else {
+        cacNhom = [...nhomTheoMon.entries()]
+            .map(([maMon, cacLop]) => ({ maMon, tenMon: cacLop[0]?.tenmon || maMon, cacLop }))
+            .sort((a, b) => diemUuTienLop(b.cacLop[0]) - diemUuTienLop(a.cacLop[0]));
+    }
+
+    const phuongAn = [];
+    if (monCanXep.length) {
+        const nhomTheoDoKho = [...cacNhom].sort((a, b) => a.cacLop.length - b.cacLop.length);
+        const thuPhuongAn = (viTri, daChon) => {
+            if (phuongAn.length >= 20) return;
+            if (viTri >= nhomTheoDoKho.length) {
+                phuongAn.push([...daChon]);
+                return;
+            }
+            nhomTheoDoKho[viTri].cacLop.forEach((lop) => {
+                if (lopKhongTrungDanhSach(lop, daChon)) thuPhuongAn(viTri + 1, [...daChon, lop]);
+            });
+        };
+        thuPhuongAn(0, []);
+    } else {
+        const daChon = [];
+        for (const nhom of cacNhom) {
+            const lop = nhom.cacLop.find((muc) => lopKhongTrungDanhSach(muc, daChon));
+            if (!lop) continue;
+            daChon.push(lop);
+            const tongTinChi = daChon.reduce((tong, muc) => tong + Number(muc.sotinchi || 0), 0);
+            if ((!tinChiMucTieu && daChon.length >= soMonMucTieu)
+                || (tinChiMucTieu && tongTinChi >= tinChiMucTieu)) break;
+        }
+        if (daChon.length) phuongAn.push(daChon);
+    }
+
+    if (!phuongAn.length) {
+        aiNguCanh.dangLapThoiKhoaBieu = true;
+        return "Không thể ghép tất cả yêu cầu thành một thời khóa biểu không trùng lịch. Bạn có thể đổi giảng viên, mở rộng khung giờ hoặc bỏ bớt một môn.";
+    }
+
+    phuongAn.sort((a, b) => b.reduce((tong, lop) => tong + diemUuTienLop(lop), 0)
+        - a.reduce((tong, lop) => tong + diemUuTienLop(lop), 0));
+    const phuongAnKhongTrung = [...new Map(phuongAn.map((danhSach) => [
+        danhSach.map((lop) => lop.malopmon).sort().join("|"), danhSach
+    ])).values()].slice(0, 2);
+    aiNguCanh.dangLapThoiKhoaBieu = true;
+    const ghiChuMonDaCo = monDaCo.length
+        ? `<p class="ai-plan-warning">Không xếp lại môn đã đăng ký: ${monDaCo.map(({ lop }) => chuyenThanhVanBanAnToan(lop.tenmon)).join(", ")}.</p>`
+        : "";
+    return `<p>Mình đã lập ${phuongAnKhongTrung.length} phương án từ các lớp còn mở:</p>${ghiChuMonDaCo}${phuongAnKhongTrung.map(taoHtmlPhuongAnLich).join("")}`;
 }
 
 function taoTheGoiYLop(lopMon) {
@@ -2176,6 +2435,7 @@ function taoTheGoiYLop(lopMon) {
     return `<article class="ai-course-card">
         <strong>${chuyenThanhVanBanAnToan(lopMon.tenmon)} · ${chuyenThanhVanBanAnToan(lopMon.malopmon)}</strong>
         <small>${tenThu(lopMon.thu)}, ${chuyenThanhVanBanAnToan(lopMon.giobatdau)}–${chuyenThanhVanBanAnToan(lopMon.gioketthuc)} · ${lopMon.sotinchi} tín chỉ</small>
+        <small>Học kỳ ${chuyenThanhSoAnToan(lopMon.hocky)} · ${chuyenThanhSoAnToan(lopMon.namhoc)}–${chuyenThanhSoAnToan(lopMon.namhoc) + 1}</small>
         <small>${chuyenThanhVanBanAnToan(lopMon.tengiaovien)} · còn ${conLai} chỗ</small>
         <button type="button" data-ai-course="${chuyenThanhVanBanAnToan(lopMon.malopmon)}">Xem lớp</button>
     </article>`;
@@ -2184,6 +2444,36 @@ function taoTheGoiYLop(lopMon) {
 function traLoiTroLy(cauHoiGoc) {
     const cauHoi = chuanHoaTimKiem(cauHoiGoc);
     const tongTinChi = danhSachMonDaDangKy.reduce((tong, lop) => tong + Number(lop.sotinchi || 0), 0);
+    const monDuocNhac = layCacMonDuocNhac(cauHoi);
+    const giaoVienDuocNhac = layCacGiaoVienDuocNhac(cauHoi);
+    const laCauHoiTraCuu = /ai day|giao vien nao|thay co nao|day mon gi|lop cua|mon cua|co lop nao|con cho|sap day|han dang ky|da dang ky/.test(cauHoi);
+    const laYeuCauLapLich = /(?:lap|xep|tao|len).*(?:thoi khoa bieu|tkb|lich hoc)/.test(cauHoi)
+        || /(?:thoi khoa bieu|tkb).*(?:cho toi|giup toi|phu hop)/.test(cauHoi)
+        || (aiNguCanh.dangLapThoiKhoaBieu && !laCauHoiTraCuu
+            && (monDuocNhac.length || giaoVienDuocNhac.length));
+
+    if (cauHoi.includes("lam lai tu dau") || cauHoi.includes("xoa yeu cau") || cauHoi === "reset") {
+        aiNguCanh.dangLapThoiKhoaBieu = false;
+        aiNguCanh.yeuCauLapLich = "";
+        return "Mình đã xóa các điều kiện xếp lịch trước đó. Bạn hãy gửi một yêu cầu thời khóa biểu mới.";
+    }
+
+    if (/^(xin chao|chao|hello|hi|alo)\b/.test(cauHoi)) {
+        return `Chào bạn! Hiện mình thấy ${danhSachLopMonCoTheDangKy.length} lớp còn có thể đăng ký. Bạn có thể nhờ mình lập thời khóa biểu, tìm lớp theo giảng viên hoặc kiểm tra lịch học.`;
+    }
+    if (cauHoi.includes("cam on") || cauHoi.includes("thanks") || cauHoi.includes("thank you")) {
+        return "Không có gì! Nếu muốn, bạn hãy gửi tên môn, giảng viên và học kỳ để mình lập thêm một phương án thời khóa biểu khác.";
+    }
+    if (/^(tam biet|bye|goodbye)/.test(cauHoi)) {
+        return "Tạm biệt bạn. Chúc bạn đăng ký được thời khóa biểu thật ưng ý!";
+    }
+    if (cauHoi.includes("ban la ai") || cauHoi.includes("lam duoc gi") || cauHoi.includes("giup gi")) {
+        return "Mình là QL Assistant. Mình có thể lập thời khóa biểu không trùng lịch, lọc theo môn/giảng viên/học kỳ/giờ rảnh, xem lớp còn chỗ, lịch hôm nay, môn đã đăng ký, tổng tín chỉ và cảnh báo xung đột.";
+    }
+
+    if (laYeuCauLapLich) {
+        return lapThoiKhoaBieu(cauHoi);
+    }
 
     if (cauHoi.includes("tin chi")) {
         return `Bạn đã đăng ký ${danhSachMonDaDangKy.length} môn, tổng cộng ${tongTinChi} tín chỉ.`;
@@ -2193,7 +2483,7 @@ function traLoiTroLy(cauHoiGoc) {
             ? `Bạn đang có ${cacCapXungDotLich.length} cặp lớp trùng lịch. Hãy mở mục Lịch học để chọn lớp muốn giữ.`
             : "Hiện tại lịch học của bạn không có lớp nào bị trùng.";
     }
-    if (cauHoi.includes("hom nay") || cauHoi.includes("lich hoc")) {
+    if (cauHoi.includes("hom nay") || cauHoi.includes("lich cua toi") || cauHoi.includes("toi hoc gi")) {
         const homNay = new Date();
         const thu = homNay.getDay() === 0 ? 8 : homNay.getDay() + 1;
         const khoa = khoaNgay(homNay);
@@ -2204,12 +2494,58 @@ function traLoiTroLy(cauHoiGoc) {
         return `<p>Hôm nay bạn có ${cacLop.length} lớp:</p>${cacLop.map(taoTheGoiYLop).join("")}`;
     }
 
+    if ((cauHoi.includes("da dang ky") || cauHoi.includes("dang hoc") || cauHoi.includes("mon cua toi"))
+        && !cauHoi.includes("bao nhieu")) {
+        if (monDuocNhac.length) {
+            const maMon = String(monDuocNhac[0].lop.mamon || "").trim();
+            const daDangKy = danhSachMonDaDangKy.some((lop) => String(lop.mamon || "").trim() === maMon);
+            return daDangKy
+                ? `Bạn đã đăng ký môn ${monDuocNhac[0].lop.tenmon}.`
+                : `Bạn chưa đăng ký môn ${monDuocNhac[0].lop.tenmon}.`;
+        }
+        if (!danhSachMonDaDangKy.length) return "Bạn chưa đăng ký môn nào.";
+        return `<p>Bạn đã đăng ký ${danhSachMonDaDangKy.length} môn:</p>${danhSachMonDaDangKy.map(taoTheGoiYLop).join("")}`;
+    }
+
+    if ((cauHoi.includes("ai day") || cauHoi.includes("giao vien nao") || cauHoi.includes("thay co nao"))
+        && monDuocNhac.length) {
+        const maMon = String(monDuocNhac[0].lop.mamon || "").trim();
+        const cacLop = danhSachLopMonCoTheDangKy.filter((lop) => String(lop.mamon || "").trim() === maMon);
+        const cacGiaoVien = [...new Map(cacLop.map((lop) => [lop.magv, lop])).values()];
+        if (!cacGiaoVien.length) return `Môn ${monDuocNhac[0].lop.tenmon} hiện chưa có lớp nào còn nhận đăng ký.`;
+        return `<p>Môn ${chuyenThanhVanBanAnToan(monDuocNhac[0].lop.tenmon)} hiện có ${cacGiaoVien.length} giảng viên:</p>${cacGiaoVien.map(taoTheGoiYLop).join("")}`;
+    }
+
+    if ((cauHoi.includes("day mon gi") || cauHoi.includes("lop cua") || cauHoi.includes("mon cua") || cauHoi.includes("co lop nao"))
+        && giaoVienDuocNhac.length) {
+        const maGiaoVien = String(giaoVienDuocNhac[0].lop.magv || "").trim();
+        const cacLop = danhSachLopMonCoTheDangKy.filter((lop) => String(lop.magv || "").trim() === maGiaoVien);
+        if (!cacLop.length) return `${giaoVienDuocNhac[0].lop.tengiaovien} hiện chưa có lớp nào còn nhận đăng ký.`;
+        return `<p>Các lớp đang mở của ${chuyenThanhVanBanAnToan(giaoVienDuocNhac[0].lop.tengiaovien)}:</p>${cacLop.slice(0, 6).map(taoTheGoiYLop).join("")}`;
+    }
+
+    if (cauHoi.includes("con cho") || cauHoi.includes("sap day") || cauHoi.includes("han dang ky")
+        || cauHoi.includes("lop dang mo")) {
+        let nguonLop = [...danhSachLopMonCoTheDangKy];
+        if (monDuocNhac.length) {
+            const maMon = String(monDuocNhac[0].lop.mamon || "").trim();
+            nguonLop = nguonLop.filter((lop) => String(lop.mamon || "").trim() === maMon);
+        }
+        if (giaoVienDuocNhac.length) {
+            const maGiaoVien = String(giaoVienDuocNhac[0].lop.magv || "").trim();
+            nguonLop = nguonLop.filter((lop) => String(lop.magv || "").trim() === maGiaoVien);
+        }
+        const cacLop = nguonLop
+            .sort((a, b) => (Number(b.sisotoida) - Number(b.sisodadangky))
+                - (Number(a.sisotoida) - Number(a.sisodadangky)))
+            .slice(0, 6);
+        if (!cacLop.length) return "Hiện không có lớp nào còn nhận đăng ký.";
+        return `<p>Đây là ${cacLop.length} lớp còn chỗ mình ưu tiên cho bạn:</p>${cacLop.map(taoTheGoiYLop).join("")}`;
+    }
+
     const thu = docThu(cauHoi);
     const khoangGio = docKhoangGio(cauHoi);
-    const hocKyMatch = cauHoi.match(/hoc k[yi]\s*([1-3])/);
-    const hocKy = hocKyMatch ? Number(hocKyMatch[1]) : null;
-    const namMatch = cauHoi.match(/nam(?: hoc)?\s*(20\d{2})/);
-    const namHoc = cauHoi.includes("nam nay") ? new Date().getFullYear() : (namMatch ? Number(namMatch[1]) : null);
+    const { hocKy, namHoc } = docHocKyVaNamHoc(cauHoi);
 
     if (thu || khoangGio || cauHoi.includes("goi y") || cauHoi.includes("suggest") || cauHoi.includes("ranh")) {
         if (!thu || !khoangGio) {
@@ -2217,11 +2553,14 @@ function traLoiTroLy(cauHoiGoc) {
         }
         const dangHoiNganhIT = /\b(it|cntt)\b/.test(cauHoi) || cauHoi.includes("cong nghe thong tin");
         const coDuLieuKhoa = danhSachLopMonCoTheDangKy.some((lop) => lop.makhoa);
+        const maMonDaDangKy = new Set(danhSachMonDaDangKy.map((lop) => String(lop.mamon || "").trim()));
         const phuHop = danhSachLopMonCoTheDangKy.filter((lop) => Number(lop.thu) === thu
             && phutTuGio(lop.giobatdau) >= khoangGio.batDau
             && phutTuGio(lop.gioketthuc) <= khoangGio.ketThuc
             && (!hocKy || Number(lop.hocky) === hocKy)
             && (!namHoc || Number(lop.namhoc) === namHoc)
+            && !maMonDaDangKy.has(String(lop.mamon || "").trim())
+            && lopKhongTrungDanhSach(lop, danhSachMonDaDangKy)
             && (!dangHoiNganhIT || !coDuLieuKhoa || /cntt|\bit\b|cong nghe thong tin/.test(chuanHoaTimKiem(lop.makhoa))))
             .sort((a, b) => (b.sisotoida - b.sisodadangky) - (a.sisotoida - a.sisodadangky))
             .slice(0, 5);
@@ -2231,7 +2570,7 @@ function traLoiTroLy(cauHoiGoc) {
         return `<p>Mình tìm thấy ${phuHop.length} lớp phù hợp lịch rảnh của bạn:</p>${phuHop.map(taoTheGoiYLop).join("")}`;
     }
 
-    return "Mình có thể gợi ý lớp theo giờ rảnh, kiểm tra lịch hôm nay, tổng tín chỉ và xung đột lịch. Hãy thử: “Thứ 5 từ 7h đến 10h tôi rảnh, gợi ý lớp học kỳ 1”.";
+    return "Mình chưa hiểu trọn ý bạn, nhưng có thể tiếp tục nếu bạn nói theo cách tự nhiên như: “Lập thời khóa biểu 4 môn học kỳ 1, phải có Java do cô Vân dạy”, “Thầy Hoàng đang dạy môn gì?” hoặc “Hôm nay tôi học gì?”.";
 }
 
 async function xuLyCauHoiAI(cauHoi) {
@@ -2250,7 +2589,7 @@ function moTroLyAI() {
     if (!aiChatbox) return;
     aiChatbox.hidden = false;
     if (!aiDaChao) {
-        themTinNhanAI("Chào bạn! Mình có thể đọc lịch học và các lớp đang mở để tư vấn môn phù hợp với thời gian rảnh của bạn.");
+        themTinNhanAI("Chào bạn! Mình có thể lập thời khóa biểu từ các môn chưa đăng ký, ưu tiên đúng môn và giảng viên bạn yêu cầu, đồng thời tự loại mọi lớp trùng lịch.");
         aiDaChao = true;
     }
     aiChatInput?.focus();
