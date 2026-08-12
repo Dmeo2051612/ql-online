@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trang quản trị</title>
+    <meta name="description" content="Trang quản trị hệ thống đăng ký môn học QL Online">
+    <meta name="theme-color" content="#0f172a">
+    <title>Quản trị — QL Online</title>
 
-    <link
-        rel="stylesheet"
-        href="/static/css/admin.css"
-    >
+    <link rel="stylesheet" href="/static/css/admin.css?v=13">
+    <link rel="stylesheet" href="/static/css/portal-shell.css?v=10">
+    <script defer src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
 </head>
 <body>
     <div class="admin-layout">
@@ -24,11 +25,11 @@
             </div>
 
             <nav class="sidebar-menu">
-                <a href="#" class="menu-item">Tổng quan</a>
+                <a href="#" class="menu-item" id="overview-menu">Tổng quan</a>
 
                 <a
                     href="#quan-ly-sinh-vien"
-                    class="menu-item active"
+                    class="menu-item"
                     id="student-menu"
                 >
                     Quản lý sinh viên
@@ -41,6 +42,14 @@
                     id="teacher-menu"
                 >
                     Quản lý giáo viên
+                </a>
+
+                <a
+                    href="#quan-ly-khoa"
+                    class="menu-item"
+                    id="department-menu"
+                >
+                    Quản lý khoa
                 </a>
 
 
@@ -59,6 +68,10 @@
                     class="menu-item"
                 >
                         Quản lý Lớp-Môn
+                </a>
+
+                <a href="#yeu-cau-mo-khoa" class="menu-item" id="permission-menu">
+                    Yêu cầu mở khóa
                 </a>
             </nav>
 
@@ -87,8 +100,139 @@
             </p>
         </header>
 
+        <!-- Stat cards -->
+        <div class="stat-cards">
+            <div class="stat-card">
+                <div class="stat-icon stat-icon-blue">🎓</div>
+                <div class="stat-info">
+                    <p>Sinh viên</p>
+                    <span class="stat-number loading" id="stat-sinh-vien"></span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon stat-icon-green">👨‍🏫</div>
+                <div class="stat-info">
+                    <p>Giáo viên</p>
+                    <span class="stat-number loading" id="stat-giao-vien"></span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon stat-icon-indigo">📚</div>
+                <div class="stat-info">
+                    <p>Lớp môn</p>
+                    <span class="stat-number loading" id="stat-lop-mon"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- stat-number stops loading once JS sets textContent -->
+
+        <section class="admin-analytics" id="admin-dashboard" aria-labelledby="dashboard-title">
+            <div class="analytics-heading">
+                <div>
+                    <p class="analytics-eyebrow">PHÂN TÍCH DỮ LIỆU</p>
+                    <h2 id="dashboard-title">Dashboard vận hành</h2>
+                    <p>Dữ liệu tổng hợp trực tiếp từ API hệ thống.</p>
+                </div>
+                <div class="analytics-heading-actions">
+                    <span id="dashboard-updated-at">Đang đồng bộ...</span>
+                    <label class="dashboard-sort-control">
+                        <span>Sắp xếp</span>
+                        <select id="dashboard-sort-order" aria-label="Sắp xếp các biểu đồ cột">
+                            <option value="desc">Giảm dần</option>
+                            <option value="asc">Tăng dần</option>
+                        </select>
+                    </label>
+                    <button type="button" id="refresh-dashboard">↻ Làm mới</button>
+                </div>
+            </div>
+
+            <div class="analytics-kpis" aria-label="Chỉ số vận hành">
+                <article><span>Khoa</span><strong id="kpi-departments">—</strong></article>
+                <article><span>Môn học</span><strong id="kpi-subjects">—</strong></article>
+                <article><span>Lượt đăng ký</span><strong id="kpi-registrations">—</strong></article>
+                <article><span>Tỷ lệ lấp đầy</span><strong id="kpi-fill-rate">—</strong></article>
+            </div>
+
+            <div class="analytics-state" id="dashboard-state" role="status">
+                <span class="analytics-spinner" aria-hidden="true"></span>
+                <span>Đang phân tích dữ liệu...</span>
+            </div>
+
+            <div class="analytics-grid" id="dashboard-charts" hidden>
+                <article class="analytics-card">
+                    <header><h3>Sinh viên theo khoa</h3><p>Cơ cấu người học hiện tại</p></header>
+                    <div class="chart-with-legend">
+                        <svg id="chart-departments" class="analytics-chart" role="img" aria-label="Biểu đồ sinh viên theo khoa"></svg>
+                        <div id="legend-departments" class="chart-legend"></div>
+                    </div>
+                </article>
+
+                <article class="analytics-card">
+                    <header><h3>Sinh viên theo khóa</h3><p>Phân bố theo năm nhập học</p></header>
+                    <svg id="chart-intakes" class="analytics-chart" role="img" aria-label="Biểu đồ sinh viên theo năm nhập học"></svg>
+                </article>
+
+                <article class="analytics-card analytics-card-small">
+                    <header><h3>Trạng thái lớp môn</h3><p>Đang mở và đã đóng</p></header>
+                    <svg id="chart-course-status" class="analytics-chart" role="img" aria-label="Biểu đồ trạng thái lớp môn"></svg>
+                </article>
+
+                <article class="analytics-card analytics-card-wide">
+                    <header><h3>Lớp có nhiều sinh viên</h3><p>So sánh sĩ số đã đăng ký với sức chứa</p></header>
+                    <svg id="chart-top-courses" class="analytics-chart analytics-chart-tall" role="img" aria-label="Biểu đồ sĩ số lớp môn"></svg>
+                </article>
+
+                <article class="analytics-card analytics-card-full">
+                    <header class="online-activity-heading">
+                        <div><h3>Hoạt động online trong ngày</h3><p id="online-activity-date">Số tài khoản hoạt động theo từng khung giờ</p></div>
+                        <div class="online-now-summary">
+                            <span><i class="online-dot student"></i>Sinh viên online <strong id="online-students-now">0</strong></span>
+                            <span><i class="online-dot teacher"></i>Giáo viên online <strong id="online-teachers-now">0</strong></span>
+                        </div>
+                    </header>
+                    <svg id="chart-online-activity" class="analytics-chart analytics-chart-ranking" role="img" aria-label="Biểu đồ sinh viên và giáo viên online theo giờ"></svg>
+                </article>
+
+                <article class="analytics-card analytics-card-full">
+                    <header class="teacher-popularity-heading">
+                        <div>
+                            <h3>Giảng viên được sinh viên lựa chọn</h3>
+                            <p>Số lượt đăng ký vào các lớp của từng giảng viên trong một học kỳ</p>
+                        </div>
+                        <label class="chart-period-filter">
+                            <span>Học kỳ</span>
+                            <select id="teacher-period-filter" aria-label="Chọn học kỳ để xem thống kê giảng viên"></select>
+                        </label>
+                    </header>
+                    <p class="teacher-popularity-winner" id="teacher-popularity-winner"></p>
+                    <svg id="chart-teacher-popularity" class="analytics-chart analytics-chart-ranking" role="img" aria-label="Biểu đồ số lượt đăng ký theo giảng viên"></svg>
+                </article>
+            </div>
+        </section>
+
+        <section class="dashboard-content management-section hidden-section" id="yeu-cau-mo-khoa">
+            <div class="content-header">
+                <div><h2>Yêu cầu mở khóa đăng nhập</h2><p>Tài khoản vẫn bị khóa cho tới khi admin chấp nhận.</p></div>
+                <select id="permission-status-filter" class="management-filter" aria-label="Lọc trạng thái yêu cầu">
+                    <option value="pending">Đang chờ</option>
+                    <option value="all">Tất cả trạng thái</option>
+                    <option value="approved">Đã chấp nhận</option>
+                    <option value="rejected">Đã từ chối</option>
+                </select>
+            </div>
+            <div class="table-container">
+                <table class="permission-table">
+                    <thead><tr><th>Email tài khoản</th><th>Nội dung xác minh</th><th>Đối chiếu</th><th>Thời gian gửi</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+                    <tbody id="permission-table-body"><tr><td colspan="6">Đang tải yêu cầu...</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+
         <section
-            class="dashboard-content management-section"
+            class="dashboard-content management-section hidden-section"
             id="quan-ly-sinh-vien"
         >
             <div class="content-header">
@@ -203,6 +347,7 @@
                             <th>Giảng viên</th>
                             <th>Học kỳ</th>
                             <th>Năm học</th>
+                            <th>Lịch học</th>
                             <th>Sĩ số</th>
                             <th>Thời gian đăng ký</th>
                             <th>Trạng thái</th>
@@ -213,6 +358,40 @@
                     <tbody id="course-table-body">
                         <!-- JavaScript sẽ đưa dữ liệu vào đây -->
                     </tbody>
+                </table>
+            </div>
+        </section>
+
+
+        <section
+            id="quan-ly-khoa"
+            class="management-section hidden-section"
+        >
+            <div class="section-header">
+                <div>
+                    <h2>Quản lý khoa</h2>
+                    <p>Danh sách khoa dùng cho hồ sơ sinh viên và giáo viên.</p>
+                </div>
+
+                <button
+                    type="button"
+                    id="open-department-modal"
+                    class="primary-button"
+                >
+                    + Thêm khoa
+                </button>
+            </div>
+
+            <div class="table-wrapper">
+                <table class="data-table department-table">
+                    <thead>
+                        <tr>
+                            <th>Mã khoa</th>
+                            <th>Tên khoa</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="department-table-body"></tbody>
                 </table>
             </div>
         </section>
@@ -319,9 +498,12 @@
                     <input
                         type="password"
                         id="student-password"
-                        maxlength="10"
+                        minlength="12"
+                        maxlength="128"
+                        autocomplete="new-password"
                         required
                     >
+                    <small>Ít nhất 12 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.</small>
                 </div>
 
                 <div class="form-group">
@@ -451,9 +633,12 @@
                     <input
                         type="password"
                         id="teacher-password"
-                        maxlength="10"
+                        minlength="12"
+                        maxlength="128"
+                        autocomplete="new-password"
                         required
                     >
+                    <small>Ít nhất 12 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.</small>
                 </div>
 
                 <div class="form-group">
@@ -527,7 +712,7 @@
             </button>
         </div>
 
-        <form id="course-form">
+        <form id="course-form" novalidate>
 
             <div class="form-grid">
 
@@ -603,6 +788,40 @@
                            min="1"
                            placeholder="40"
                            required>
+                </div>
+
+                <div class="form-group">
+                    <label for="course-weekday">Thứ</label>
+                    <select id="course-weekday" required>
+                        <option value="">-- Chọn ngày học --</option>
+                        <option value="2">Thứ 2</option>
+                        <option value="3">Thứ 3</option>
+                        <option value="4">Thứ 4</option>
+                        <option value="5">Thứ 5</option>
+                        <option value="6">Thứ 6</option>
+                        <option value="7">Thứ 7</option>
+                        <option value="8">Chủ nhật</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="course-start-time">Giờ bắt đầu</label>
+                    <input type="time" id="course-start-time" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="course-end-time">Giờ kết thúc</label>
+                    <input type="time" id="course-end-time" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="course-study-start">Ngày bắt đầu học</label>
+                    <input type="date" id="course-study-start" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="course-study-end">Ngày kết thúc học</label>
+                    <input type="date" id="course-study-end" required>
                 </div>
 
                 <div class="form-group">
@@ -749,12 +968,85 @@
 
 
 
-<script src="/static/js/admin.js"></script>
+<div class="modal-overlay hidden" id="department-modal">
+    <div
+        class="modal-card department-modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="department-modal-title"
+    >
+        <div class="modal-header">
+            <div>
+                <h2 id="department-modal-title">Thêm khoa</h2>
+                <p>Tạo khoa mới để sử dụng trong hồ sơ người dùng.</p>
+            </div>
 
-<script
-    type="module"
-    src="/static/js/admin-firebase.js"
-></script>
+            <button
+                type="button"
+                class="close-modal"
+                id="close-department-modal"
+                aria-label="Đóng"
+            >
+                ×
+            </button>
+        </div>
+
+        <form id="department-form" novalidate>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="department-code">Mã khoa</label>
+                    <input
+                        type="text"
+                        id="department-code"
+                        maxlength="10"
+                        placeholder="Ví dụ: CNTT"
+                        autocomplete="off"
+                        required
+                    >
+                    <small>2–10 ký tự, chỉ gồm chữ, số, gạch ngang hoặc gạch dưới.</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="department-name">Tên khoa</label>
+                    <input
+                        type="text"
+                        id="department-name"
+                        maxlength="100"
+                        placeholder="Ví dụ: Công nghệ thông tin"
+                        autocomplete="off"
+                        required
+                    >
+                </div>
+            </div>
+
+            <p class="form-error" id="department-form-error" role="alert"></p>
+
+            <div class="modal-actions">
+                <button
+                    type="button"
+                    class="cancel-button"
+                    id="cancel-department-modal"
+                >
+                    Hủy
+                </button>
+
+                <button
+                    type="submit"
+                    class="save-button"
+                    id="save-department-button"
+                >
+                    Lưu khoa
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<script type="module" src="/static/js/admin-firebase.js"></script>
+<script type="module" src="/static/js/admin.js?v=17"></script>
+<script type="module" src="/static/js/admin-dashboard.js?v=5"></script>
+<script type="module" src="/static/js/portal-shell.js?v=12"></script>
 
 
 </body>

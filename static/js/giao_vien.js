@@ -375,93 +375,62 @@ async function taiDanhSachLopMon() {
 
 
         // =========================
-        // 5. GHÉP THÔNG TIN MÔN HỌC
+        // 5. GHÉP THÔNG TIN MÔN HỌC (batch load — tránh N+1)
         // =========================
-        const danhSach = await Promise.all(
-            ketQuaLopMon.docs.map(
-                async function (taiLieuLopMon) {
-                    const lopMon =
-                        taiLieuLopMon.data();
 
+        // Thu thập tất cả mã môn cần load
+        const cacMaMon = [
+            ...new Set(
+                ketQuaLopMon.docs
+                    .map(function (d) { return String(d.data().mamon || "").trim(); })
+                    .filter(Boolean)
+            )
+        ];
 
-                    const maMon = String(
-                        lopMon.mamon || ""
-                    ).trim();
+        // Load song song một lần
+        const bangMonHoc = {};
+        await Promise.all(
+            cacMaMon.map(async function (maMon) {
+                const taiLieu = await getDoc(doc(db, "monhoc", maMon));
+                if (taiLieu.exists()) {
+                    bangMonHoc[maMon] = taiLieu.data();
+                }
+            })
+        );
 
+        const danhSach = ketQuaLopMon.docs.map(
+            function (taiLieuLopMon) {
+                const lopMon = taiLieuLopMon.data();
 
-                    let tenMon = "";
-                    let soTinChi = 0;
+                const maMon = String(lopMon.mamon || "").trim();
 
+                const monHoc  = bangMonHoc[maMon] || {};
+                const tenMon  = String(monHoc.tenmon  || "").trim();
+                const soTinChi = chuyenThanhSoAnToan(monHoc.sotinchi);
 
-                    if (maMon) {
-                        const taiLieuMonHoc =
-                            await getDoc(
-                                doc(
-                                    db,
-                                    "monhoc",
-                                    maMon
-                                )
-                            );
+                return {
+                    malopmon: taiLieuLopMon.id,
+                    mamon:    maMon,
+                    tenmon:   tenMon,
 
-
-                        if (taiLieuMonHoc.exists()) {
-                            const monHoc =
-                                taiLieuMonHoc.data();
-
-
-                            tenMon = String(
-                                monHoc.tenmon || ""
-                            ).trim();
-
-
-                            soTinChi =
-                                chuyenThanhSoAnToan(
-                                    monHoc.sotinchi
-                                );
-                        }
-                    }
-
-
-                    return {
-                        malopmon:
-                            taiLieuLopMon.id,
-
-                        mamon:
-                            maMon,
-
-                        tenmon:
-                            tenMon,
-
-                        sotinchi:
-                           soTinChi,
+                        sotinchi:   soTinChi,
 
                         hocky:
-                            chuyenThanhSoAnToan(
-                                lopMon.hocky
-                            ),
+                            chuyenThanhSoAnToan(lopMon.hocky),
 
                         namhoc:
-                            chuyenThanhSoAnToan(
-                                lopMon.namhoc
-                            ),
+                            chuyenThanhSoAnToan(lopMon.namhoc),
 
                         sisotoida:
-                            chuyenThanhSoAnToan(
-                                lopMon.sisotoida
-                            ),
+                            chuyenThanhSoAnToan(lopMon.sisotoida),
 
                         sisodadangky:
-                            chuyenThanhSoAnToan(
-                                lopMon.sisodadangky
-                            ),
+                            chuyenThanhSoAnToan(lopMon.sisodadangky),
 
                         trangthai:
-                            String(
-                                lopMon.trangthai || ""
-                            ).trim()
+                            String(lopMon.trangthai || "").trim()
                     };
                 }
-            )
         );
 
 

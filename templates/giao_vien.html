@@ -14,6 +14,7 @@
         rel="stylesheet"
         href="{{ url_for('static', filename='css/giao_vien.css') }}"
     >
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/portal-shell.css') }}">
 </head>
 
 <body>
@@ -235,5 +236,6 @@
         type="module"
         src="{{ url_for('static', filename='js/giao-vien-firebase.js') }}"
     ></script>
+    <script type="module" src="{{ url_for('static', filename='js/portal-shell.js') }}?v=12"></script>
 </body>
 </html>

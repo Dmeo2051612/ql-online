@@ -12,8 +12,9 @@
 
     <link
         rel="stylesheet"
-        href="{{ url_for('static', filename='css/sinh_vien.css') }}"
+        href="{{ url_for('static', filename='css/sinh_vien.css') }}?v=6"
     >
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/portal-shell.css') }}?v=5">
 </head>
 
 <body>
@@ -48,6 +49,10 @@
                     class="menu-item"
                 >
                     Môn đã đăng ký
+                </a>
+
+                <a href="#lich-hoc" id="schedule-menu" class="menu-item">
+                    Lịch học
                 </a>
             </nav>
 
@@ -91,6 +96,25 @@
                 </p>
             </header>
 
+            <section class="student-insight-grid" aria-label="Tổng quan đăng ký">
+                <article class="student-insight-card">
+                    <span class="student-insight-icon blue">⌕</span>
+                    <div><small>Lớp đang mở</small><strong id="student-open-class-count">—</strong></div>
+                </article>
+                <article class="student-insight-card">
+                    <span class="student-insight-icon green">✓</span>
+                    <div><small>Môn đã đăng ký</small><strong id="student-registered-count">—</strong></div>
+                </article>
+                <article class="student-insight-card">
+                    <span class="student-insight-icon violet">◆</span>
+                    <div><small>Tổng tín chỉ</small><strong id="student-credit-count">—</strong></div>
+                </article>
+                <article class="student-insight-card">
+                    <span class="student-insight-icon amber">◷</span>
+                    <div><small>Sắp hết hạn</small><strong id="student-deadline-count">—</strong></div>
+                </article>
+            </section>
+
 
             <section
                 id="available-section"
@@ -109,6 +133,28 @@
                     </div>
                 </div>
 
+                <div class="student-toolbar" aria-label="Bộ lọc lớp môn">
+                    <label class="student-search-field">
+                        <span>⌕</span>
+                        <input id="available-course-search" type="search" placeholder="Tìm mã lớp, môn học hoặc giảng viên...">
+                    </label>
+                    <select id="available-semester-filter" aria-label="Lọc học kỳ">
+                        <option value="">Tất cả học kỳ</option>
+                    </select>
+                    <select id="available-course-sort" aria-label="Sắp xếp lớp môn">
+                        <option value="code">Theo mã lớp</option>
+                        <option value="deadline">Hạn gần nhất</option>
+                        <option value="seats">Còn nhiều chỗ nhất</option>
+                        <option value="credits">Số tín chỉ cao nhất</option>
+                    </select>
+                    <button type="button" class="student-refresh-button" id="student-refresh-courses">↻ Làm mới</button>
+                </div>
+
+                <div class="student-result-line">
+                    <span id="available-result-count">Đang tải dữ liệu...</span>
+                    <small id="student-last-sync"></small>
+                </div>
+
                 <div class="table-wrapper">
                     <table class="data-table">
                         <thead>
@@ -118,6 +164,7 @@
                                 <th>Số tín chỉ</th>
                                 <th>Giảng viên</th>
                                 <th>Học kỳ</th>
+                                <th>Lịch học</th>
                                 <th>Sĩ số</th>
                                 <th>Hạn đăng ký</th>
                                 <th>Thao tác</th>
@@ -129,7 +176,7 @@
                         >
                             <tr>
                                 <td
-                                    colspan="8"
+                                    colspan="9"
                                     class="table-message"
                                 >
                                     Đang xác thực tài khoản...
@@ -155,6 +202,10 @@
                             Danh sách lớp môn của bạn.
                         </p>
                     </div>
+
+                    <button type="button" class="student-export-button" id="export-registered-courses">
+                        ⇩ Xuất CSV
+                    </button>
                 </div>
 
                 <div class="table-wrapper">
@@ -166,6 +217,7 @@
                                 <th>Số tín chỉ</th>
                                 <th>Giảng viên</th>
                                 <th>Học kỳ</th>
+                                <th>Lịch học</th>
                                 <th>Ngày đăng ký</th>
                                 <th>Trạng thái</th>
                                 <th>Thao tác</th>
@@ -177,7 +229,7 @@
                         >
                             <tr>
                                 <td
-                                    colspan="8"
+                                    colspan="9"
                                     class="table-message"
                                 >
                                     Đang xác thực tài khoản...
@@ -187,16 +239,72 @@
                     </table>
                 </div>
             </section>
+
+            <section id="schedule-section" class="student-section hidden-section">
+                <div class="section-header calendar-heading">
+                    <div>
+                        <h2>Lịch học của tôi</h2>
+                        <p>Xem lịch theo tuần và thêm ghi chú cá nhân.</p>
+                    </div>
+                    <div class="calendar-controls">
+                        <button type="button" id="calendar-prev" aria-label="Tuần trước">‹</button>
+                        <button type="button" id="calendar-today">Hôm nay</button>
+                        <button type="button" id="calendar-next" aria-label="Tuần sau">›</button>
+                    </div>
+                </div>
+
+                <div id="student-conflict-panel" class="student-conflict-panel hidden-section" role="alert">
+                    <div>
+                        <strong>⚠ Lịch học của bạn đang bị trùng</strong>
+                        <p>Nhà trường vừa thay đổi lịch. Hãy chọn lớp bạn muốn giữ.</p>
+                    </div>
+                    <div id="student-conflict-list" class="student-conflict-list"></div>
+                </div>
+
+                <div class="calendar-summary">
+                    <strong id="calendar-week-label">Tuần hiện tại</strong>
+                    <span>Màu xanh: lịch học · Màu vàng: ghi chú</span>
+                </div>
+
+                <div id="student-calendar" class="student-calendar" aria-label="Lịch học theo tuần"></div>
+
+                <form id="calendar-note-form" class="calendar-note-form">
+                    <h3>Thêm ghi chú</h3>
+                    <input type="date" id="calendar-note-date" required aria-label="Ngày ghi chú">
+                    <input type="time" id="calendar-note-time" aria-label="Giờ ghi chú">
+                    <input type="text" id="calendar-note-content" maxlength="120" placeholder="Ví dụ: Nộp bài tập nhóm" required>
+                    <button type="submit">+ Thêm</button>
+                </form>
+            </section>
         </main>
     </div>
 
+    <button type="button" id="ai-chat-toggle" class="ai-chat-toggle" aria-label="Mở trợ lý học vụ">✦</button>
+    <aside id="ai-chatbox" class="ai-chatbox" hidden aria-label="Trợ lý học vụ AI">
+        <header class="ai-chat-header">
+            <div><span>✦</span><div><strong>QL Assistant</strong><small>Trợ lý học vụ</small></div></div>
+            <button type="button" id="ai-chat-close" aria-label="Đóng">×</button>
+        </header>
+        <div id="ai-chat-messages" class="ai-chat-messages" aria-live="polite"></div>
+        <div class="ai-chat-suggestions">
+            <button type="button" data-ai-question="Gợi ý lớp thứ 5 từ 7h đến 10h học kỳ 1 năm nay">Gợi ý lớp phù hợp</button>
+            <button type="button" data-ai-question="Hôm nay tôi học môn gì?">Lịch hôm nay</button>
+            <button type="button" data-ai-question="Tôi đã đăng ký bao nhiêu tín chỉ?">Tổng tín chỉ</button>
+        </div>
+        <form id="ai-chat-form" class="ai-chat-form">
+            <input id="ai-chat-input" type="text" maxlength="240" autocomplete="off" placeholder="Hỏi về lịch học, lớp môn..." required>
+            <button type="submit" aria-label="Gửi">➤</button>
+        </form>
+    </aside>
+
     <script
-        src="{{ url_for('static', filename='js/sinh_vien.js') }}"
+        src="{{ url_for('static', filename='js/sinh_vien.js') }}?v=9"
     ></script>
 
     <script
         type="module"
         src="{{ url_for('static', filename='js/sinhvien-firebase.js') }}"
     ></script>
+    <script type="module" src="{{ url_for('static', filename='js/portal-shell.js') }}?v=12"></script>
 </body>
 </html>

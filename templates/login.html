@@ -3,50 +3,189 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Đăng nhập</title>
+        <meta name="description" content="Đăng nhập hệ thống đăng ký môn học QL Online">
+        <meta name="theme-color" content="#2563eb">
+        <title>Đăng nhập — QL Online</title>
 
-        <link
-            rel="stylesheet"
-            href="/static/css/login.css"
-        >
+        <link rel="stylesheet" href="/static/css/login.css?v=4">
     </head>
 
     <body>
         <div class="login-container">
             <div class="login-card">
+                <div class="login-brand">
+                    <div class="login-brand-mark">Q</div>
+                    <div>
+                        <strong>QL Online</strong>
+                        <small>Hệ thống đăng ký môn học</small>
+                    </div>
+                </div>
+
                 <h1>Đăng nhập</h1>
-                <p>Hệ thống đăng ký môn học</p>
-                
 
-                <form id="login-form">
-                    <label for="email">Email</label>
-                    <input
-                        type="email"
-                        id="email"
-                        name="email"
-                        placeholder="Nhập email"
-                        required
+                <form id="login-form" novalidate>
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input
+                            type="email"
+                            id="email"
+                            name="email"
+                            placeholder="Nhập email"
+                            autocomplete="username"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="matkhau">Mật khẩu</label>
+                        <div class="password-wrapper">
+                            <input
+                                type="password"
+                                id="matkhau"
+                                name="matkhau"
+                                placeholder="Nhập mật khẩu"
+                                autocomplete="current-password"
+                                required
+                            >
+                            <button
+                                type="button"
+                                class="toggle-password"
+                                id="toggle-password"
+                                aria-label="Hiện / ẩn mật khẩu"
+                            >
+                                <span class="eye-icon" id="eye-icon">👁</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="login-button">
+                        <span id="login-button-text">Đăng nhập</span>
+                        <span class="btn-spinner hidden" id="login-spinner"></span>
+                    </button>
+
+                    <button
+                        type="button"
+                        class="forgot-password-button"
+                        id="open-forgot-password"
+                        aria-expanded="false"
+                        aria-controls="forgot-password-panel"
                     >
-
-                    <label for="matkhau">Mật khẩu</label>
-                    <input
-                        type="password"
-                        id="matkhau"
-                        name="matkhau"
-                        placeholder="Nhập mật khẩu"
-                        required
-                    >
-
-                    <button type="submit">Đăng nhập</button>
+                        Quên mật khẩu?
+                    </button>
                 </form>
 
-                <p id="login-error"></p>
+                <p id="login-error" role="alert"></p>
+
+                <section class="lockout-support hidden" id="lockout-support" aria-live="polite">
+                    <div class="lockout-support-heading">
+                        <span aria-hidden="true">?</span>
+                        <div><strong>Cần hỗ trợ mở khóa?</strong><small>Gửi thông tin xác minh tới quản trị viên nhà trường.</small></div>
+                    </div>
+                    <button type="button" id="open-lockout-contact">Liên hệ nhà trường <span aria-hidden="true">→</span></button>
+                    <p id="lockout-request-state"></p>
+                    <form class="hidden" id="lockout-contact-form">
+                        <div class="lockout-format-hint">
+                            <strong>Nhập đúng từng dòng theo cú pháp:</strong>
+                            <code>Mã: ...<br>Họ tên: ...<br>Khoa: ...<br>Email: ...<br>Lý do: ...</code>
+                            <small>Lý do chỉ dùng để admin xem xét, không tính vào thông tin xác minh.</small>
+                        </div>
+                        <label for="lockout-message">Thông tin xác minh</label>
+                        <textarea id="lockout-message" maxlength="800" rows="8" spellcheck="false"></textarea>
+                        <div>
+                            <button type="button" id="cancel-lockout-contact">Hủy</button>
+                            <button type="submit" id="send-lockout-contact">Gửi yêu cầu</button>
+                        </div>
+                    </form>
+                </section>
+
+                <section
+                    class="forgot-password-panel hidden"
+                    id="forgot-password-panel"
+                    aria-labelledby="forgot-password-title"
+                >
+                    <h2 id="forgot-password-title">Đặt lại mật khẩu</h2>
+                    <p>
+                        Hệ thống sẽ gửi mã OTP 6 số tới email đã đăng ký.
+                    </p>
+
+                    <form id="forgot-password-form" novalidate>
+                        <div class="form-group">
+                            <label for="reset-email">Email</label>
+                            <input
+                                type="email"
+                                id="reset-email"
+                                name="reset-email"
+                                placeholder="Nhập email tài khoản"
+                                autocomplete="email"
+                                required
+                            >
+                        </div>
+
+                        <div class="reset-confirm-fields hidden" id="reset-confirm-fields">
+                            <div class="form-group">
+                                <label for="reset-code">Mã xác nhận</label>
+                                <input
+                                    type="text"
+                                    id="reset-code"
+                                    inputmode="numeric"
+                                    maxlength="6"
+                                    pattern="[0-9]{6}"
+                                    placeholder="Nhập mã OTP 6 số"
+                                    autocomplete="one-time-code"
+                                >
+                            </div>
+
+                            <div class="form-group">
+                                <label for="reset-new-password">Mật khẩu mới</label>
+                                <input
+                                    type="password"
+                                    id="reset-new-password"
+                                    minlength="12"
+                                    maxlength="128"
+                                    placeholder="Ít nhất 12 ký tự"
+                                    autocomplete="new-password"
+                                >
+                            </div>
+
+                            <div class="form-group">
+                                <label for="reset-confirm-password">Nhập lại mật khẩu</label>
+                                <input
+                                    type="password"
+                                    id="reset-confirm-password"
+                                    minlength="12"
+                                    maxlength="128"
+                                    placeholder="Nhập lại mật khẩu mới"
+                                    autocomplete="new-password"
+                                >
+                            </div>
+                        </div>
+
+                        <p id="reset-password-message" role="status"></p>
+
+                        <div class="forgot-password-actions">
+                            <button
+                                type="button"
+                                class="forgot-cancel-button"
+                                id="cancel-forgot-password"
+                            >
+                                Quay lại
+                            </button>
+
+                            <button
+                                type="submit"
+                                class="forgot-submit-button"
+                                id="send-reset-email"
+                            >
+                                <span id="reset-button-text">Gửi mã xác nhận</span>
+                                <span class="btn-spinner hidden" id="reset-spinner"></span>
+                            </button>
+                        </div>
+                    </form>
+                </section>
             </div>
         </div>
 
-        <script
-            type="module"
-            src="/static/js/login-firebase.js"
-        ></script>
+        <script src="/static/js/login-ui.js" defer></script>
+        <script type="module" src="/static/js/login-firebase.js?v=6"></script>
     </body>
 </html>

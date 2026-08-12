@@ -1,6 +1,357 @@
 
 
 
+// ===========================
+// TOAST & CONFIRM SYSTEM
+// ===========================
+
+let _toastContainer = null;
+
+function layToastContainer() {
+    if (_toastContainer) {
+        return _toastContainer;
+    }
+
+    _toastContainer = document.createElement("div");
+    _toastContainer.id = "toast-container";
+    document.body.appendChild(_toastContainer);
+
+    return _toastContainer;
+}
+
+
+function hienThiThongBao(noiDung, loai) {
+    const container = layToastContainer();
+    const toast = document.createElement("div");
+
+    toast.className = `toast toast-${loai || "success"}`;
+    toast.textContent = noiDung;
+
+    container.appendChild(toast);
+
+    requestAnimationFrame(function () {
+        toast.classList.add("toast-show");
+    });
+
+    setTimeout(function () {
+        toast.classList.remove("toast-show");
+        toast.classList.add("toast-hide");
+
+        setTimeout(function () {
+            toast.remove();
+        }, 350);
+    }, 3500);
+}
+
+
+function xacNhan(noiDung) {
+    return new Promise(function (resolve) {
+        const overlay = document.createElement("div");
+        overlay.className = "confirm-overlay";
+import { passwordPolicyError } from "./password-policy.js";
+        const card = document.createElement("div");
+        card.className = "confirm-card";
+        card.setAttribute("role", "alertdialog");
+        card.setAttribute("aria-modal", "true");
+
+        const message = document.createElement("p");
+        message.className = "confirm-message";
+        message.textContent = noiDung;
+
+        const actions = document.createElement("div");
+        actions.className = "confirm-actions";
+
+        const cancelButton = document.createElement("button");
+        cancelButton.type = "button";
+        cancelButton.className = "confirm-cancel";
+        cancelButton.textContent = "Hủy";
+
+        const confirmButton = document.createElement("button");
+        confirmButton.type = "button";
+        confirmButton.className = "confirm-ok";
+        confirmButton.textContent = "Xác nhận";
+
+        actions.append(cancelButton, confirmButton);
+        card.append(message, actions);
+        overlay.appendChild(card);
+
+        document.body.appendChild(overlay);
+        document.body.style.overflow = "hidden";
+
+        let daDong = false;
+
+        function ketThuc(ketQua) {
+            if (daDong) {
+                return;
+            }
+
+            daDong = true;
+            overlay.remove();
+            document.body.style.overflow = "";
+            resolve(ketQua);
+        }
+
+        confirmButton.addEventListener("click", function () {
+            ketThuc(true);
+        });
+
+        cancelButton.addEventListener("click", function () {
+            ketThuc(false);
+        });
+
+        overlay.addEventListener("keydown", function (e) {
+            if (e.key === "Escape") {
+                ketThuc(false);
+            }
+        });
+
+        overlay.addEventListener("click", function (event) {
+            if (event.target === overlay) {
+                ketThuc(false);
+            }
+        });
+
+        confirmButton.focus();
+    });
+}
+
+
+// ===========================
+// TABLE LOADING & ERROR STATES
+// ===========================
+
+async function voiGioiHanThoiGian(tacVu, thongBao, thoiGian = 15000) {
+    let boDem;
+
+    try {
+        return await Promise.race([
+            tacVu,
+            new Promise(function (_, reject) {
+                boDem = window.setTimeout(function () {
+                    reject(new Error(thongBao));
+                }, thoiGian);
+            })
+        ]);
+    } finally {
+        window.clearTimeout(boDem);
+    }
+}
+
+
+function hienThiDangTaiBang(thanBang, soCot, noiDung) {
+    if (!thanBang) {
+        return;
+    }
+
+    thanBang.replaceChildren();
+    thanBang.setAttribute("aria-busy", "true");
+
+    const dongThongBao = document.createElement("tr");
+    const oThongBao = document.createElement("td");
+    const noiDungTai = document.createElement("div");
+    const cacCham = document.createElement("span");
+    const nhan = document.createElement("span");
+
+    oThongBao.colSpan = soCot;
+    oThongBao.className = "table-loading-cell";
+    noiDungTai.className = "table-loading-content";
+    cacCham.className = "loading-dots";
+    cacCham.setAttribute("aria-hidden", "true");
+
+    for (let i = 0; i < 3; i += 1) {
+        cacCham.appendChild(document.createElement("i"));
+    }
+
+    nhan.textContent = noiDung;
+    noiDungTai.append(cacCham, nhan);
+    oThongBao.appendChild(noiDungTai);
+    dongThongBao.appendChild(oThongBao);
+    thanBang.appendChild(dongThongBao);
+
+    const doDaiThanh = ["72%", "88%", "64%", "78%", "56%", "84%", "68%", "74%", "60%"];
+
+    for (let dongIndex = 0; dongIndex < 3; dongIndex += 1) {
+        const dong = document.createElement("tr");
+        dong.className = "table-skeleton-row";
+        dong.setAttribute("aria-hidden", "true");
+
+        for (let cotIndex = 0; cotIndex < soCot; cotIndex += 1) {
+            const o = document.createElement("td");
+            const thanh = document.createElement("span");
+
+            thanh.className = "skeleton-line";
+            thanh.style.width = doDaiThanh[(dongIndex + cotIndex) % doDaiThanh.length];
+            o.appendChild(thanh);
+            dong.appendChild(o);
+        }
+
+        thanBang.appendChild(dong);
+    }
+}
+
+
+function hienThiTrangThaiBang(thanBang, soCot, noiDung, loai = "empty", thuLai) {
+    if (!thanBang) {
+        return;
+    }
+
+    thanBang.replaceChildren();
+    thanBang.setAttribute("aria-busy", "false");
+
+    const dong = document.createElement("tr");
+    const o = document.createElement("td");
+    const khoi = document.createElement("div");
+    const bieuTuong = document.createElement("span");
+    const nhan = document.createElement("span");
+
+    o.colSpan = soCot;
+    o.className = `table-state-cell table-state-${loai}`;
+    khoi.className = "table-state-content";
+    bieuTuong.className = "table-state-icon";
+    bieuTuong.setAttribute("aria-hidden", "true");
+    bieuTuong.textContent = loai === "error" ? "!" : "○";
+    nhan.textContent = noiDung;
+
+    khoi.append(bieuTuong, nhan);
+
+    if (typeof thuLai === "function") {
+        const nutThuLai = document.createElement("button");
+        nutThuLai.type = "button";
+        nutThuLai.className = "table-retry-button";
+        nutThuLai.textContent = "Thử lại";
+        nutThuLai.addEventListener("click", thuLai);
+        khoi.appendChild(nutThuLai);
+    }
+
+    o.appendChild(khoi);
+    dong.appendChild(o);
+    thanBang.appendChild(dong);
+}
+
+
+function layThongBaoLoiTaiDuLieu(loi) {
+    const maLoi = String(loi?.code || "").toLowerCase();
+
+    if (maLoi.includes("permission-denied")) {
+        return "Bạn không có quyền đọc dữ liệu này.";
+    }
+
+    if (maLoi.includes("unavailable") || maLoi.includes("network")) {
+        return "Không thể kết nối Firebase. Vui lòng kiểm tra mạng.";
+    }
+
+    return loi?.message || "Đã xảy ra lỗi khi tải dữ liệu.";
+}
+
+
+// ===========================
+// CACHE DANH SÁCH KHOA
+// ===========================
+
+let _cachecacLuaChonKhoa = null;
+let _promiseTaiDanhSachKhoa = null;
+
+
+async function layDanhSachKhoaTuCache() {
+    if (_cachecacLuaChonKhoa) {
+        return _cachecacLuaChonKhoa;
+    }
+
+    if (!_promiseTaiDanhSachKhoa) {
+        _promiseTaiDanhSachKhoa = (async function () {
+            const { db } = await import("/static/js/firebase-config.js");
+
+            const { collection, getDocs } = await import(
+                "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js"
+            );
+
+            const ketQua = await getDocs(collection(db, "khoa"));
+
+            return ketQua.docs.map(function (taiLieu) {
+                return {
+                    makhoa: taiLieu.id,
+                    tenkhoa: taiLieu.data().tenkhoa
+                };
+            });
+        })();
+    }
+
+    try {
+        _cachecacLuaChonKhoa = await _promiseTaiDanhSachKhoa;
+    } finally {
+        _promiseTaiDanhSachKhoa = null;
+    }
+
+    return _cachecacLuaChonKhoa;
+}
+
+
+// ===========================
+// THỐNG KÊ TỔNG QUAN
+// ===========================
+
+async function taiThongKeTongQuan() {
+    const cacOThongKe = [
+        document.getElementById("stat-sinh-vien"),
+        document.getElementById("stat-giao-vien"),
+        document.getElementById("stat-lop-mon")
+    ];
+
+    cacOThongKe.forEach(function (oThongKe) {
+        if (oThongKe) {
+            oThongKe.textContent = "";
+            oThongKe.title = "";
+            oThongKe.classList.add("loading");
+        }
+    });
+
+    try {
+        const [ketQuaSV, ketQuaGV, ketQuaLM] = await voiGioiHanThoiGian(
+            (async function () {
+                const { db } = await import("/static/js/firebase-config.js");
+
+                const { collection, getDocs } = await import(
+                    "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js"
+                );
+
+                return Promise.all([
+                    getDocs(collection(db, "sinhvien")),
+                    getDocs(collection(db, "giaovien")),
+                    getDocs(collection(db, "lopmon"))
+                ]);
+            })(),
+            "Quá thời gian tải dữ liệu thống kê."
+        );
+
+        const soSV = document.getElementById("stat-sinh-vien");
+        const soGV = document.getElementById("stat-giao-vien");
+        const soLM = document.getElementById("stat-lop-mon");
+
+        if (soSV) { soSV.textContent = ketQuaSV.size; }
+        if (soGV) { soGV.textContent = ketQuaGV.size; }
+        if (soLM) { soLM.textContent = ketQuaLM.size; }
+
+    } catch (loi) {
+        console.error("Không thể tải thống kê tổng quan:", loi);
+
+        cacOThongKe.forEach(function (oThongKe) {
+            if (!oThongKe) {
+                return;
+            }
+
+            oThongKe.textContent = "—";
+            oThongKe.title = "Không thể tải dữ liệu thống kê";
+        });
+    } finally {
+        cacOThongKe.forEach(function (oThongKe) {
+            if (oThongKe) {
+                oThongKe.classList.remove("loading");
+            }
+        });
+    }
+}
+
+
 let cheDoForm = "them"
 let maSinhVienDangSua = null;
 
@@ -22,18 +373,11 @@ function hienThiDanhSachSinhVien(danhSach) {
         "student-table-body"
     );
 
-    thanBang.innerHTML = "";
+    thanBang.replaceChildren();
+    thanBang.setAttribute("aria-busy", "false");
 
     if (danhSach.length === 0) {
-        const dongTrong = document.createElement("tr");
-        const oTrong = document.createElement("td");
-
-        oTrong.colSpan = 7;
-        oTrong.textContent = "Chưa có sinh viên nào.";
-
-        dongTrong.appendChild(oTrong);
-        thanBang.appendChild(dongTrong);
-
+        hienThiTrangThaiBang(thanBang, 7, "Chưa có sinh viên nào.");
         return;
     }
 
@@ -92,31 +436,32 @@ function hienThiDanhSachSinhVien(danhSach) {
 
 
 async function taiDanhSachSinhVien() {
+    const thanBang = document.getElementById("student-table-body");
+    hienThiDangTaiBang(thanBang, 7, "Đang tải danh sách sinh viên");
+
     try {
-        const { db } = await import(
-            "/static/js/firebase-config.js"
-        );
+        const [ketQuaSinhVien, danhSachKhoa] = await voiGioiHanThoiGian(
+            (async function () {
+                const { db } = await import(
+                    "/static/js/firebase-config.js"
+                );
 
-        const {
-            collection,
-            getDocs
-        } = await import(
-            "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js"
-        );
+                const { collection, getDocs } = await import(
+                    "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js"
+                );
 
-        const ketQuaSinhVien = await getDocs(
-            collection(db, "sinhvien")
-        );
-
-        const ketQuaKhoa = await getDocs(
-            collection(db, "khoa")
+                return Promise.all([
+                    getDocs(collection(db, "sinhvien")),
+                    layDanhSachKhoaTuCache()
+                ]);
+            })(),
+            "Quá thời gian tải danh sách sinh viên."
         );
 
         const bangTenKhoa = {};
 
-        ketQuaKhoa.docs.forEach(function (taiLieu) {
-            bangTenKhoa[taiLieu.id] =
-                taiLieu.data().tenkhoa || "";
+        danhSachKhoa.forEach(function (khoa) {
+            bangTenKhoa[khoa.makhoa] = khoa.tenkhoa || "";
         });
 
         const danhSach = ketQuaSinhVien.docs.map(
@@ -140,8 +485,6 @@ async function taiDanhSachSinhVien() {
             }
         );
 
-        danhSachSinhVienHienTai = danhSach;
-
         hienThiDanhSachSinhVien(danhSach);
 
     } catch (loi) {
@@ -149,11 +492,16 @@ async function taiDanhSachSinhVien() {
             "Không thể tải sinh viên:",
             loi
         );
+
+        hienThiTrangThaiBang(
+            thanBang,
+            7,
+            layThongBaoLoiTaiDuLieu(loi),
+            "error",
+            taiDanhSachSinhVien
+        );
     }
 }
-
-taiDanhSachSinhVien();
-
 
 
 const studentModal = document.getElementById("student-modal");
@@ -178,6 +526,37 @@ const subjectMenu = document.getElementById("subject-menu");
 const subjectSection = document.getElementById("quan-ly-mon-hoc");
 const subjectTableBody = 
     document.getElementById("subject-table-body");
+
+const departmentMenu =
+    document.getElementById("department-menu");
+const departmentSection =
+    document.getElementById("quan-ly-khoa");
+const departmentTableBody =
+    document.getElementById("department-table-body");
+
+const permissionMenu = document.getElementById("permission-menu");
+const permissionSection = document.getElementById("yeu-cau-mo-khoa");
+const permissionTableBody = document.getElementById("permission-table-body");
+const permissionStatusFilter = document.getElementById("permission-status-filter");
+
+const departmentModal =
+    document.getElementById("department-modal");
+const departmentForm =
+    document.getElementById("department-form");
+const departmentCodeInput =
+    document.getElementById("department-code");
+const departmentNameInput =
+    document.getElementById("department-name");
+const departmentFormError =
+    document.getElementById("department-form-error");
+const openDepartmentModalButton =
+    document.getElementById("open-department-modal");
+const closeDepartmentModalButton =
+    document.getElementById("close-department-modal");
+const cancelDepartmentModalButton =
+    document.getElementById("cancel-department-modal");
+const saveDepartmentButton =
+    document.getElementById("save-department-button");
 
 
 
@@ -400,6 +779,11 @@ studentForm.addEventListener(
         };
 
         if(cheDoForm === "them") {
+            const passwordError = passwordPolicyError(duLieu.matkhau, duLieu.mail);
+            if (passwordError) {
+                formMessage.textContent = passwordError;
+                return;
+            }
             await guiYeuCauThemSinhVien(duLieu);
         } else {
             await guiYeuCauSuaSinhVien(
@@ -505,7 +889,7 @@ async function guiYeuCauThemSinhVien(duLieu) {
 
         await taiDanhSachSinhVien();
 
-        alert("Thêm sinh viên thành công.");
+        hienThiThongBao("Thêm sinh viên thành công.", "success");
 
     } catch (loi) {
         formMessage.textContent = loi.message;
@@ -565,9 +949,7 @@ async function guiYeuCauSuaSinhVien(masv, duLieu) {
 
         await taiDanhSachSinhVien();
 
-        alert(
-            "Cập nhật sinh viên thành công."
-        );
+        hienThiThongBao("Cập nhật sinh viên thành công.", "success");
 
     } catch (loi) {
         formMessage.textContent = loi.message;
@@ -590,10 +972,8 @@ async function guiYeuCauSuaSinhVien(masv, duLieu) {
 
 
 async function xoaSinhVien(sinhVien, nutXoa) {
-    const dongY = window.confirm(
-        `Bạn có chắc muốn xóa sinh viên này?\n\n` +
-        `Mã sinh viên: ${sinhVien.masv}\n` +
-        `Họ tên: ${sinhVien.hoten}`
+    const dongY = await xacNhan(
+        `Bạn có chắc muốn xóa sinh viên này?\n\nMã sinh viên: ${sinhVien.masv}\nHọ tên: ${sinhVien.hoten}`
     );
 
     if (!dongY) {
@@ -683,12 +1063,10 @@ async function xoaSinhVien(sinhVien, nutXoa) {
         // 7. Tải lại bảng
         await taiDanhSachSinhVien();
 
-        alert(
-            "Xóa sinh viên thành công."
-        );
+        hienThiThongBao("Xóa sinh viên thành công.", "success");
 
     } catch (loi) {
-        alert(`Lỗi: ${loi.message}`);
+        hienThiThongBao(`Lỗi: ${loi.message}`, "error");
 
         nutXoa.disabled = false;
         nutXoa.textContent = "Xóa";
@@ -704,6 +1082,9 @@ async function xoaSinhVien(sinhVien, nutXoa) {
 
 const studentMenu =
     document.getElementById("student-menu");
+
+const overviewMenu =
+    document.getElementById("overview-menu");
 
 const teacherMenu =
     document.getElementById("teacher-menu");
@@ -722,78 +1103,48 @@ const teacherSection =
 const courseSection = 
     document.getElementById("quan-ly-lop-mon");
 
+const statCards =
+    document.querySelector(".stat-cards");
 
-console.log({
-    studentMenu,
-    teacherMenu,
-    studentSection,
-    teacherSection
-});
+const dashboardSection =
+    document.getElementById("admin-dashboard");
 
 
 
-studentMenu.addEventListener("click", function (suKien) {
-    suKien.preventDefault();
-
-    hienThiSection(studentSection, studentMenu);
-    window.location.hash = "quan-ly-sinh-vien";
-
-    taiDanhSachSinhVien();
-});
 
 
-teacherMenu.addEventListener("click", function (suKien) {
-    suKien.preventDefault();
-
-    
-    hienThiSection(teacherSection, teacherMenu);
-    window.location.hash = "quan-ly-giao-vien";
-
-    taiDanhSachGiaoVien();
-});
-
-
-
-courseMenu.addEventListener("click", function (suKien) {
-    suKien.preventDefault();
-
-    
-    hienThiSection(courseSection, courseMenu);
-    window.location.hash = "quan-ly-lop-mon";
-
-    taiDanhSachLopMon();
-});
+/* Các menu được xử lý tập trung bởi router ở cuối file. */
 
 
 
 
 async function taiDanhSachGiaoVien() {
+    const thanBang = document.getElementById("teacher-table-body");
+    hienThiDangTaiBang(thanBang, 6, "Đang tải danh sách giáo viên");
+
     try {
-        const { db } = await import(
-            "/static/js/firebase-config.js"
-        );
+        const [ketQua, danhSachKhoa] = await voiGioiHanThoiGian(
+            (async function () {
+                const { db } = await import(
+                    "/static/js/firebase-config.js"
+                );
 
-        const {
-            collection,
-            getDocs
-        } = await import(
-            "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js"
-        );
+                const { collection, getDocs } = await import(
+                    "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js"
+                );
 
-        const ketQua = await getDocs(
-            collection(db, "giaovien")
-        );
-
-
-        const ketQuaKhoa = await getDocs(
-            collection(db, "khoa")
+                return Promise.all([
+                    getDocs(collection(db, "giaovien")),
+                    layDanhSachKhoaTuCache()
+                ]);
+            })(),
+            "Quá thời gian tải danh sách giáo viên."
         );
 
         const bangTenKhoa = {};
 
-        ketQuaKhoa.docs.forEach(function (taiLieu) {
-            bangTenKhoa[taiLieu.id] =
-                taiLieu.data().tenkhoa || "";
+        danhSachKhoa.forEach(function (khoa) {
+            bangTenKhoa[khoa.makhoa] = khoa.tenkhoa || "";
         });
 
 
@@ -826,7 +1177,13 @@ async function taiDanhSachGiaoVien() {
             loi
         );
 
-        hienThiLoiDanhSachGiaoVien();
+        hienThiTrangThaiBang(
+            thanBang,
+            6,
+            layThongBaoLoiTaiDuLieu(loi),
+            "error",
+            taiDanhSachGiaoVien
+        );
     }
 }
 
@@ -834,42 +1191,16 @@ async function taiDanhSachGiaoVien() {
 
 
 
-function hienThiLoiDanhSachGiaoVien() {
-    const thanBang = document.getElementById(
-        "teacher-table-body"
-    );
-
-    thanBang.innerHTML = "";
-
-    const dong = document.createElement("tr");
-    const o = document.createElement("td");
-
-    o.colSpan = 6;
-    o.textContent =
-        "Không thể tải danh sách giáo viên.";
-
-    dong.appendChild(o);
-    thanBang.appendChild(dong);
-}
-
-
 function hienThiDanhSachGiaoVien(danhSach) {
     const thanBang = document.getElementById(
         "teacher-table-body"
     );
 
-    thanBang.innerHTML = "";
+    thanBang.replaceChildren();
+    thanBang.setAttribute("aria-busy", "false");
 
     if (danhSach.length === 0) {
-        const dongTrong = document.createElement("tr");
-        const oTrong = document.createElement("td");
-
-        oTrong.colSpan = 6;
-        oTrong.textContent = "Chưa có giáo viên nào.";
-
-        dongTrong.appendChild(oTrong);
-        thanBang.appendChild(dongTrong);
-
+        hienThiTrangThaiBang(thanBang, 6, "Chưa có giáo viên nào.");
         return;
     }
 
@@ -1105,11 +1436,6 @@ async function guiYeuCauThemGiaoVien(duLieu) {
         const uidGiaoVien =
             taiKhoanGiaoVien.user.uid;
 
-        console.log(
-            "UID giáo viên vừa tạo:",
-            uidGiaoVien
-        );
-
 
         await setDoc(
             doc(db, "users", uidGiaoVien),
@@ -1137,7 +1463,7 @@ async function guiYeuCauThemGiaoVien(duLieu) {
         dongFormGiaoVien();
         await taiDanhSachGiaoVien();
 
-        alert("Thêm giáo viên thành công.");
+        hienThiThongBao("Thêm giáo viên thành công.", "success");
 
     } catch (loi) {
         teacherFormMessage.textContent = loi.message;
@@ -1186,6 +1512,11 @@ teacherForm.addEventListener(
         };
 
         if (cheDoFormGiaoVien === "them") {
+            const passwordError = passwordPolicyError(duLieu.matkhau, duLieu.mail);
+            if (passwordError) {
+                teacherFormMessage.textContent = passwordError;
+                return;
+            }
             await guiYeuCauThemGiaoVien(duLieu);
         } else {
             await guiYeuCauSuaGiaoVien(
@@ -1304,7 +1635,7 @@ async function guiYeuCauSuaGiaoVien(magv, duLieu) {
         dongFormGiaoVien();
         await taiDanhSachGiaoVien();
 
-        alert("Cập nhật giáo viên thành công.");
+        hienThiThongBao("Cập nhật giáo viên thành công.", "success");
 
     } catch (loi) {
         teacherFormMessage.textContent = loi.message;
@@ -1319,10 +1650,8 @@ async function guiYeuCauSuaGiaoVien(magv, duLieu) {
 
 
 async function xoaGiaoVien(giaoVien, nutXoa) {
-    const dongY = window.confirm(
-        `Bạn có chắc muốn xóa giáo viên này?\n\n` +
-        `Mã giáo viên: ${giaoVien.magv}\n` +
-        `Họ tên: ${giaoVien.hoten}`
+    const dongY = await xacNhan(
+        `Bạn có chắc muốn xóa giáo viên này?\n\nMã giáo viên: ${giaoVien.magv}\nHọ tên: ${giaoVien.hoten}`
     );
 
     if (!dongY) {
@@ -1401,11 +1730,11 @@ async function xoaGiaoVien(giaoVien, nutXoa) {
 
         await taiDanhSachGiaoVien();
 
-        alert("Xóa giáo viên thành công."); 
+        hienThiThongBao("Xóa giáo viên thành công.", "success");
 
 
     } catch (loi) {
-        alert(`Lỗi: ${loi.message}`);
+        hienThiThongBao(`Lỗi: ${loi.message}`, "error");
 
         nutXoa.disabled = false;
         nutXoa.textContent = "Xóa";
@@ -1415,6 +1744,8 @@ async function xoaGiaoVien(giaoVien, nutXoa) {
 
 
 const courseTableBody = document.getElementById("course-table-body");
+const boNhoLopMonQuanLy = new Map();
+let maLopMonDangSua = null;
 
 
 
@@ -1423,7 +1754,9 @@ function dinhDangNgayGio(chuoiNgay) {
         return "";
     }
 
-    const ngay = new Date(chuoiNgay);
+    const ngay = typeof chuoiNgay?.toDate === "function"
+        ? chuoiNgay.toDate()
+        : new Date(chuoiNgay);
 
     if (Number.isNaN(ngay.getTime())) {
         return chuoiNgay;
@@ -1442,17 +1775,11 @@ function dinhDangNgayGio(chuoiNgay) {
 
 function hienThiDanhSachLopMon(danhSach) {
     if (!Array.isArray(danhSach) || danhSach.length === 0) {
-        courseTableBody.innerHTML = `
-            <tr>
-                <td colspan="9">
-                    Chưa có lớp môn nào được mở.
-                </td>
-            </tr>
-        `;
-
+        hienThiTrangThaiBang(courseTableBody, 10, "Chưa có lớp môn nào được mở.");
         return;
     }
 
+    courseTableBody.setAttribute("aria-busy", "false");
     courseTableBody.innerHTML = danhSach.map(function (lopMon) {
         const namKetThuc = Number(lopMon.namhoc) + 1;
 
@@ -1489,6 +1816,12 @@ function hienThiDanhSachLopMon(danhSach) {
                 </td>
 
                 <td>
+                    <strong>${lopMon.thu ? (Number(lopMon.thu) === 8 ? "Chủ nhật" : `Thứ ${lopMon.thu}`) : "Chưa xếp"}</strong><br>
+                    <small>${lopMon.giobatdau && lopMon.gioketthuc ? `${lopMon.giobatdau} – ${lopMon.gioketthuc}` : "—"}</small><br>
+                    <small>${lopMon.ngaybatdauhoc && lopMon.ngayketthuchoc ? `${lopMon.ngaybatdauhoc} → ${lopMon.ngayketthuchoc}` : "Chưa có thời hạn học"}</small>
+                </td>
+
+                <td>
                     ${lopMon.sisodadangky}/${lopMon.sisotoida}
                 </td>
 
@@ -1510,6 +1843,7 @@ function hienThiDanhSachLopMon(danhSach) {
                 </td>
 
                 <td>
+                    <button type="button" class="edit-course-button" data-malopmon="${lopMon.malopmon}">Sửa</button>
                     <button
                         type="button"
                         class="
@@ -1532,39 +1866,28 @@ function hienThiDanhSachLopMon(danhSach) {
 
 
 async function taiDanhSachLopMon() {
-    courseTableBody.innerHTML = `
-        <tr>
-            <td colspan="9">
-                Đang tải danh sách lớp môn...
-            </td>
-        </tr>
-    `;
+    hienThiDangTaiBang(courseTableBody, 10, "Đang tải danh sách lớp môn");
 
     try {
-        const { db } = await import(
-            "/static/js/firebase-config.js"
-        );
+        const [ketQuaLopMon, ketQuaMonHoc, ketQuaGiaoVien] =
+            await voiGioiHanThoiGian(
+                (async function () {
+                    const { db } = await import(
+                        "/static/js/firebase-config.js"
+                    );
 
-        const {
-            collection,
-            getDocs
-        } = await import(
-            "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js"
-        );
+                    const { collection, getDocs } = await import(
+                        "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js"
+                    );
 
-
-        // 1. Lấy 3 collection cần thiết
-        const ketQuaLopMon = await getDocs(
-            collection(db, "lopmon")
-        );
-
-        const ketQuaMonHoc = await getDocs(
-            collection(db, "monhoc")
-        );
-
-        const ketQuaGiaoVien = await getDocs(
-            collection(db, "giaovien")
-        );
+                    return Promise.all([
+                        getDocs(collection(db, "lopmon")),
+                        getDocs(collection(db, "monhoc")),
+                        getDocs(collection(db, "giaovien"))
+                    ]);
+                })(),
+                "Quá thời gian tải danh sách lớp môn."
+            );
 
 
         // 2. Tạo bảng tra Mã môn -> Tên môn
@@ -1592,41 +1915,29 @@ async function taiDanhSachLopMon() {
 
                 return {
                     malopmon: taiLieu.id,
-
                     mamon: duLieu.mamon || "",
-
-                    tenmon:
-                        bangTenMon[duLieu.mamon] || "",
-
+                    tenmon: bangTenMon[duLieu.mamon] || "",
                     magv: duLieu.magv || "",
-
-                    tengiaovien:
-                        bangTenGiaoVien[duLieu.magv] || "",
-
+                    tengiaovien: bangTenGiaoVien[duLieu.magv] || "",
                     hocky: duLieu.hocky || "",
-
                     namhoc: duLieu.namhoc || "",
-
-                    sisotoida: Number(
-                        duLieu.sisotoida || 0
-                    ),
-
-                    sisodadangky: Number(
-                        duLieu.sisodadangky || 0
-                    ),
-
-                    ngaybatdaudk:
-                        duLieu.ngaybatdaudk || "",
-
-                    ngayketthucdk:
-                        duLieu.ngayketthucdk || "",
-
-                    trangthai:
-                        duLieu.trangthai || ""
+                    sisotoida: Number(duLieu.sisotoida || 0),
+                    sisodadangky: Number(duLieu.sisodadangky || 0),
+                    ngaybatdaudk: duLieu.ngaybatdaudk || "",
+                    ngayketthucdk: duLieu.ngayketthucdk || "",
+                    thu: Number(duLieu.thu || 0),
+                    giobatdau: duLieu.giobatdau || "",
+                    gioketthuc: duLieu.gioketthuc || "",
+                    ngaybatdauhoc: duLieu.ngaybatdauhoc || "",
+                    ngayketthuchoc: duLieu.ngayketthuchoc || "",
+                    trangthai: duLieu.trangthai || ""
                 };
             }
         );
 
+
+        boNhoLopMonQuanLy.clear();
+        danhSach.forEach((lopMon) => boNhoLopMonQuanLy.set(lopMon.malopmon, lopMon));
 
         // 5. Đưa dữ liệu sang hàm vẽ bảng cũ
         hienThiDanhSachLopMon(danhSach);
@@ -1637,13 +1948,13 @@ async function taiDanhSachLopMon() {
             loi
         );
 
-        courseTableBody.innerHTML = `
-            <tr>
-                <td colspan="9">
-                    ${loi.message}
-                </td>
-            </tr>
-        `;
+        hienThiTrangThaiBang(
+            courseTableBody,
+            10,
+            layThongBaoLoiTaiDuLieu(loi),
+            "error",
+            taiDanhSachLopMon
+        );
     }
 }
 
@@ -1652,6 +1963,13 @@ async function taiDanhSachLopMon() {
 
 
 courseTableBody.addEventListener("click", async function (suKien) {
+    const nutSua = suKien.target.closest(".edit-course-button");
+    if (nutSua) {
+        const lopMon = boNhoLopMonQuanLy.get(nutSua.dataset.malopmon);
+        if (lopMon) await moModalLopMon(lopMon);
+        return;
+    }
+
     const nutTrangThai = suKien.target.closest(
         ".close-course-button"
     );
@@ -1669,7 +1987,7 @@ courseTableBody.addEventListener("click", async function (suKien) {
             : "mở lại đăng ký"
     );
 
-    const dongY = confirm(
+    const dongY = await xacNhan(
         `Bạn có chắc muốn ${tenHanhDong} lớp ${maLopMon}?`
     );
 
@@ -1707,14 +2025,12 @@ courseTableBody.addEventListener("click", async function (suKien) {
             }
         );
 
-        alert(
-            `Đã ${tenHanhDong} lớp ${maLopMon}.`
-        );
+        hienThiThongBao(`Đã ${tenHanhDong} lớp ${maLopMon}.`, "success");
 
         await taiDanhSachLopMon();
 
     } catch (loi) {
-        alert(`Lỗi: ${loi.message}`);
+        hienThiThongBao(`Lỗi: ${loi.message}`, "error");
 
         nutTrangThai.disabled = false;
         nutTrangThai.textContent = noiDungNutCu;
@@ -1752,26 +2068,67 @@ const courseFormError = document.getElementById(
 
 
 
-function moModalLopMon() {
+async function moModalLopMon(lopMon = null) {
     courseForm.reset();
     courseFormError.textContent = "";
+    maLopMonDangSua = lopMon?.malopmon || null;
+
+    const tieuDe = courseModal.querySelector(".modal-header h2");
+    const moTa = courseModal.querySelector(".modal-header p");
+    const oMaLop = document.getElementById("course-code");
+    if (tieuDe) tieuDe.textContent = maLopMonDangSua ? "Sửa lớp môn" : "Mở lớp môn";
+    if (moTa) moTa.textContent = maLopMonDangSua
+        ? "Cập nhật lịch học và thông tin lớp môn."
+        : "Nhập thông tin lớp được mở trong học kỳ.";
+    oMaLop.disabled = Boolean(maLopMonDangSua);
+    saveCourseButton.textContent = maLopMonDangSua ? "Hoàn tất" : "Mở lớp môn";
 
     document.getElementById("course-year").value =
         new Date().getFullYear();
 
     document.getElementById("course-capacity").value = 40;
+    document.getElementById("course-start-time").value = "07:00";
+    document.getElementById("course-end-time").value = "09:30";
 
     courseModal.hidden = false;
     document.body.style.overflow = "hidden";
 
 
-    taiLuaChonLopMon();
+    await taiLuaChonLopMon();
+
+    if (lopMon) {
+        oMaLop.value = lopMon.malopmon;
+        courseSubject.value = lopMon.mamon;
+        courseTeacher.value = lopMon.magv;
+        document.getElementById("course-semester").value = lopMon.hocky;
+        document.getElementById("course-year").value = lopMon.namhoc;
+        document.getElementById("course-capacity").value = lopMon.sisotoida;
+        document.getElementById("course-weekday").value = lopMon.thu || "";
+        document.getElementById("course-start-time").value = lopMon.giobatdau || "";
+        document.getElementById("course-end-time").value = lopMon.gioketthuc || "";
+        document.getElementById("course-study-start").value = dinhDangNgayChoInput(lopMon.ngaybatdauhoc);
+        document.getElementById("course-study-end").value = dinhDangNgayChoInput(lopMon.ngayketthuchoc);
+        document.getElementById("course-registration-start").value = dinhDangNgayChoInput(lopMon.ngaybatdaudk, true);
+        document.getElementById("course-registration-end").value = dinhDangNgayChoInput(lopMon.ngayketthucdk, true);
+    }
+}
+
+
+function dinhDangNgayChoInput(giaTri, coGio = false) {
+    if (!giaTri) return "";
+    const ngay = typeof giaTri?.toDate === "function" ? giaTri.toDate() : new Date(giaTri);
+    if (Number.isNaN(ngay.getTime())) return String(giaTri).slice(0, coGio ? 16 : 10);
+    const buHaiSo = (so) => String(so).padStart(2, "0");
+    const phanNgay = `${ngay.getFullYear()}-${buHaiSo(ngay.getMonth() + 1)}-${buHaiSo(ngay.getDate())}`;
+    return coGio ? `${phanNgay}T${buHaiSo(ngay.getHours())}:${buHaiSo(ngay.getMinutes())}` : phanNgay;
 }
 
 
 function dongModalLopMon() {
     courseModal.hidden = true;
     document.body.style.overflow = "";
+    maLopMonDangSua = null;
+    document.getElementById("course-code").disabled = false;
 }
 
 
@@ -1961,6 +2318,7 @@ courseForm.addEventListener(
         suKien.preventDefault();
 
         courseFormError.textContent = "";
+        const dangChinhSua = Boolean(maLopMonDangSua);
 
         const duLieuGuiDi = {
             malopmon: document
@@ -1997,7 +2355,35 @@ courseForm.addEventListener(
             ngayketthucdk: document
                 .getElementById("course-registration-end")
                 .value
+                .trim(),
+
+            thu: Number(document
+                .getElementById("course-weekday")
+                .value),
+
+            giobatdau: document
+                .getElementById("course-start-time")
+                .value,
+
+            gioketthuc: document
+                .getElementById("course-end-time")
+                .value,
+
+            ngaybatdauhoc: document
+                .getElementById("course-study-start")
+                .value,
+
+            ngayketthuchoc: document
+                .getElementById("course-study-end")
+                .value
         };
+
+        if (!duLieuGuiDi.malopmon || !duLieuGuiDi.mamon || !duLieuGuiDi.magv
+            || !duLieuGuiDi.hocky || !duLieuGuiDi.namhoc || !duLieuGuiDi.sisotoida
+            || !duLieuGuiDi.ngaybatdaudk || !duLieuGuiDi.ngayketthucdk) {
+            courseFormError.textContent = "Vui lòng điền đầy đủ thông tin lớp môn và thời gian đăng ký.";
+            return;
+        }
 
 
         const noiDungNutCu =
@@ -2005,18 +2391,23 @@ courseForm.addEventListener(
 
         saveCourseButton.disabled = true;
         saveCourseButton.textContent =
-            "Đang mở lớp...";
+            dangChinhSua ? "Đang lưu..." : "Đang mở lớp...";
 
 
         try {
-            const { db } = await import(
+            const { db, auth } = await import(
                 "/static/js/firebase-config.js"
             );
 
             const {
+                collection,
                 doc,
                 getDoc,
-                setDoc
+                getDocs,
+                query,
+                where,
+                setDoc,
+                updateDoc
             } = await import(
                 "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js"
             );
@@ -2032,10 +2423,14 @@ courseForm.addEventListener(
             const lopMonCu =
                 await getDoc(thamChieuLopMon);
 
-            if (lopMonCu.exists()) {
+            if (!maLopMonDangSua && lopMonCu.exists()) {
                 throw new Error(
                     "Mã lớp môn đã tồn tại."
                 );
+            }
+
+            if (maLopMonDangSua && !lopMonCu.exists()) {
+                throw new Error("Lớp môn cần sửa không còn tồn tại.");
             }
 
 
@@ -2048,29 +2443,200 @@ courseForm.addEventListener(
                 );
             }
 
+            if (!duLieuGuiDi.thu || !duLieuGuiDi.giobatdau || !duLieuGuiDi.gioketthuc) {
+                throw new Error("Vui lòng chọn đầy đủ thứ và giờ học.");
+            }
 
-            await setDoc(
-                thamChieuLopMon,
-                {
-                    mamon: duLieuGuiDi.mamon,
-                    magv: duLieuGuiDi.magv,
-                    hocky: duLieuGuiDi.hocky,
-                    namhoc: duLieuGuiDi.namhoc,
+            if (duLieuGuiDi.gioketthuc <= duLieuGuiDi.giobatdau) {
+                throw new Error("Giờ kết thúc phải sau giờ bắt đầu.");
+            }
 
-                    sisotoida: duLieuGuiDi.sisotoida,
+            if (!duLieuGuiDi.ngaybatdauhoc || !duLieuGuiDi.ngayketthuchoc) {
+                throw new Error("Vui lòng chọn ngày bắt đầu và kết thúc học.");
+            }
 
-                    // Lớp mới chưa có sinh viên đăng ký
-                    sisodadangky: 0,
+            if (duLieuGuiDi.ngayketthuchoc < duLieuGuiDi.ngaybatdauhoc) {
+                throw new Error("Ngày kết thúc học phải từ ngày bắt đầu học trở đi.");
+            }
 
-                    ngaybatdaudk:
-                        duLieuGuiDi.ngaybatdaudk,
+            const ngayHocDau = new Date(`${duLieuGuiDi.ngaybatdauhoc}T00:00:00`);
+            const ngayHocCuoi = new Date(`${duLieuGuiDi.ngayketthuchoc}T00:00:00`);
+            const thuTheoJs = duLieuGuiDi.thu === 8 ? 0 : duLieuGuiDi.thu - 1;
+            const ngayXuatHienDau = new Date(ngayHocDau);
+            ngayXuatHienDau.setDate(ngayXuatHienDau.getDate() + (thuTheoJs - ngayHocDau.getDay() + 7) % 7);
+            if (ngayXuatHienDau > ngayHocCuoi) {
+                throw new Error("Khoảng ngày học không chứa ngày học đã chọn.");
+            }
 
-                    ngayketthucdk:
-                        duLieuGuiDi.ngayketthucdk,
-
-                    trangthai: "Mở"
+            if (maLopMonDangSua) {
+                const siSoHienTai = Number(lopMonCu.data().sisodadangky || 0);
+                if (duLieuGuiDi.sisotoida < siSoHienTai) {
+                    throw new Error(`Sĩ số tối đa không thể nhỏ hơn ${siSoHienTai} sinh viên đã đăng ký.`);
                 }
+            }
+
+            if (dangChinhSua) {
+                const token = await auth.currentUser.getIdToken();
+                const guiCapNhat = async (xacNhanXungDot) => {
+                    const phanHoi = await fetch(`/api/admin/course-schedule/${encodeURIComponent(duLieuGuiDi.malopmon)}`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({ ...duLieuGuiDi, confirmConflicts: xacNhanXungDot })
+                    });
+                    const ketQua = await phanHoi.json().catch(() => ({}));
+                    if (!phanHoi.ok && !(phanHoi.status === 409 && ketQua.requiresConfirmation)) {
+                        throw new Error(ketQua.error || "Không thể cập nhật lớp môn.");
+                    }
+                    return ketQua;
+                };
+
+                let ketQua = await guiCapNhat(false);
+                if (ketQua.requiresConfirmation) {
+                    const dongY = await xacNhan(
+                        `Lịch mới làm ${ketQua.affectedCount} sinh viên bị trùng lịch. ` +
+                        "Tiếp tục cập nhật và yêu cầu sinh viên chọn lớp muốn giữ?"
+                    );
+                    if (!dongY) throw new Error("Đã hủy cập nhật lịch học.");
+                    ketQua = await guiCapNhat(true);
+                }
+
+                dongModalLopMon();
+                await taiDanhSachLopMon();
+                hienThiThongBao(
+                    ketQua.affectedCount
+                        ? `Đã cập nhật và gửi cảnh báo cho ${ketQua.affectedCount} sinh viên.`
+                        : "Cập nhật lớp môn thành công.",
+                    "success"
+                );
+                return;
+            }
+
+            const cacLopCuaGiaoVien = await getDocs(query(
+                collection(db, "lopmon"),
+                where("magv", "==", duLieuGuiDi.magv)
+            ));
+            const lopTrungLich = cacLopCuaGiaoVien.docs.find(function (taiLieu) {
+                const lop = taiLieu.data();
+                if (taiLieu.id === maLopMonDangSua) return false;
+                const trungKhoangNgay = !lop.ngaybatdauhoc || !lop.ngayketthuchoc
+                    || (String(lop.ngaybatdauhoc) <= duLieuGuiDi.ngayketthuchoc
+                        && String(lop.ngayketthuchoc) >= duLieuGuiDi.ngaybatdauhoc);
+                return Number(lop.hocky) === duLieuGuiDi.hocky
+                    && Number(lop.namhoc) === duLieuGuiDi.namhoc
+                    && Number(lop.thu) === duLieuGuiDi.thu
+                    && trungKhoangNgay
+                    && String(lop.giobatdau || "") < duLieuGuiDi.gioketthuc
+                    && String(lop.gioketthuc || "") > duLieuGuiDi.giobatdau;
+            });
+            if (lopTrungLich) {
+                throw new Error(`Giáo viên đã có lớp ${lopTrungLich.id} trùng khung giờ này.`);
+            }
+
+            const xungDotPhatSinh = new Map();
+            if (dangChinhSua) {
+                const dangKyCuaLop = await getDocs(query(
+                    collection(db, "dangky"),
+                    where("malopmon", "==", duLieuGuiDi.malopmon)
+                ));
+
+                for (const taiLieuDangKy of dangKyCuaLop.docs) {
+                    const maSinhVien = String(taiLieuDangKy.data().masv || "").trim();
+                    if (!maSinhVien) continue;
+                    const dangKyCuaSinhVien = await getDocs(query(
+                        collection(db, "dangky"),
+                        where("masv", "==", maSinhVien)
+                    ));
+
+                    for (const taiLieuKhac of dangKyCuaSinhVien.docs) {
+                        const maLopKhac = String(taiLieuKhac.data().malopmon || "").trim();
+                        if (!maLopKhac || maLopKhac === duLieuGuiDi.malopmon) continue;
+                        const taiLieuLopKhac = await getDoc(doc(db, "lopmon", maLopKhac));
+                        if (!taiLieuLopKhac.exists()) continue;
+                        const lopKhac = taiLieuLopKhac.data();
+                        const trungKhoangNgay = !lopKhac.ngaybatdauhoc || !lopKhac.ngayketthuchoc
+                            || (String(lopKhac.ngaybatdauhoc) <= duLieuGuiDi.ngayketthuchoc
+                                && String(lopKhac.ngayketthuchoc) >= duLieuGuiDi.ngaybatdauhoc);
+                        const biTrung = Number(lopKhac.hocky) === duLieuGuiDi.hocky
+                            && Number(lopKhac.namhoc) === duLieuGuiDi.namhoc
+                            && Number(lopKhac.thu) === duLieuGuiDi.thu
+                            && trungKhoangNgay
+                            && String(lopKhac.giobatdau || "") < duLieuGuiDi.gioketthuc
+                            && String(lopKhac.gioketthuc || "") > duLieuGuiDi.giobatdau;
+                        if (biTrung) {
+                            if (!xungDotPhatSinh.has(taiLieuDangKy.id)) {
+                                xungDotPhatSinh.set(taiLieuDangKy.id, {
+                                    thamChieu: taiLieuDangKy.ref,
+                                    masv: maSinhVien,
+                                    cacLopTrung: new Set()
+                                });
+                            }
+                            xungDotPhatSinh.get(taiLieuDangKy.id).cacLopTrung.add(maLopKhac);
+                        }
+                    }
+                }
+            }
+
+            if (xungDotPhatSinh.size > 0) {
+                const dongY = await xacNhan(
+                    `Lịch mới làm ${xungDotPhatSinh.size} sinh viên bị trùng lịch. ` +
+                    "Tiếp tục cập nhật và yêu cầu sinh viên chọn lớp muốn giữ?"
+                );
+                if (!dongY) throw new Error("Đã hủy cập nhật lịch học.");
+            }
+
+
+
+            const {
+                taoDuLieuLopMonMoi
+            } = await import(
+                "/static/js/data-schema.js?v=3"
             );
+
+            const duLieuLopMon =
+                taoDuLieuLopMonMoi(
+                    duLieuGuiDi
+                );
+
+            if (maLopMonDangSua) {
+                const { sisodadangky, trangthai, ...duLieuCapNhat } = duLieuLopMon;
+                await updateDoc(thamChieuLopMon, duLieuCapNhat);
+            } else {
+                await setDoc(thamChieuLopMon, duLieuLopMon);
+            }
+
+
+            if (xungDotPhatSinh.size > 0) {
+                await Promise.all([...xungDotPhatSinh.values()].map((muc) => updateDoc(muc.thamChieu, {
+                    trangthai: "XUNG ĐỘT LỊCH",
+                    lichcanxuly: true,
+                    xungdotvoi: [...muc.cacLopTrung],
+                    capnhatlichluc: new Date().toISOString()
+                })));
+
+                try {
+                    const uidNguoiNhan = [];
+                    for (const muc of xungDotPhatSinh.values()) {
+                        const hoSo = await getDoc(doc(db, "sinhvien", muc.masv));
+                        const uid = String(hoSo.data()?.uid || "").trim();
+                        if (uid) uidNguoiNhan.push(uid);
+                    }
+                    if (uidNguoiNhan.length && auth.currentUser) {
+                        const token = await auth.currentUser.getIdToken();
+                        await fetch("/api/notifications", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                            body: JSON.stringify({
+                                title: "Lịch học vừa thay đổi",
+                                message: `Lớp ${duLieuGuiDi.malopmon} vừa đổi lịch và gây trùng. Hãy vào Lịch học để chọn lớp muốn giữ.`,
+                                recipientMode: "sinhvien_filter",
+                                recipientUids: [...new Set(uidNguoiNhan)]
+                            })
+                        });
+                    }
+                } catch (loiThongBao) {
+                    console.warn("Không thể gửi thông báo xung đột:", loiThongBao);
+                }
+            }
 
 
 
@@ -2078,9 +2644,7 @@ courseForm.addEventListener(
 
             await taiDanhSachLopMon();
 
-            alert(
-                "Mở lớp môn thành công."
-            );
+            hienThiThongBao(dangChinhSua ? "Cập nhật lớp môn thành công." : "Mở lớp môn thành công.", "success");
 
         } catch (loi) {
             courseFormError.textContent =
@@ -2117,29 +2681,8 @@ async function taiDanhSachKhoa() {
     });
 
     try {
-        const { db } = await import(
-            "/static/js/firebase-config.js"
-        );
-
-
-        const { collection, getDocs } = await import(
-            "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js"
-        );
-
-
-        const ketQua = await getDocs(
-            collection(db, "khoa")
-        );
-
-
-        const danhSachKhoa = ketQua.docs.map(
-            function (taiLieu) {
-                return {
-                    makhoa: taiLieu.id,
-                    tenkhoa: taiLieu.data().tenkhoa
-                };
-            }
-        );
+        // tải danh sách khoa từ cache
+        const danhSachKhoa = await layDanhSachKhoaTuCache();
 
         const cacLuaChon = danhSachKhoa.map(
             function (khoa) {
@@ -2182,57 +2725,436 @@ async function taiDanhSachKhoa() {
 
 
 
-function hienThiSection(sectionCanHien, menuCanChon) {
-    studentSection.classList.add("hidden-section");
-    teacherSection.classList.add("hidden-section");
-    subjectSection.classList.add("hidden-section");
-    courseSection.classList.add("hidden-section");
+function hienThiDanhSachKhoaQuanLy(danhSach) {
+    departmentTableBody.replaceChildren();
+    departmentTableBody.setAttribute("aria-busy", "false");
 
-    studentMenu.classList.remove("active");
-    teacherMenu.classList.remove("active");
-    subjectMenu.classList.remove("active");
-    courseMenu.classList.remove("active");
+    if (!Array.isArray(danhSach) || danhSach.length === 0) {
+        hienThiTrangThaiBang(
+            departmentTableBody,
+            2,
+            "Chưa có khoa nào."
+        );
+        return;
+    }
 
-    sectionCanHien.classList.remove("hidden-section");
-    menuCanChon.classList.add("active");
+    danhSach.forEach(function (khoa) {
+        const dong = document.createElement("tr");
+
+        dong.appendChild(taoO(khoa.makhoa));
+        dong.appendChild(taoO(khoa.tenkhoa));
+        departmentTableBody.appendChild(dong);
+    });
 }
 
 
+async function taiDanhSachKhoaQuanLy() {
+    hienThiDangTaiBang(
+        departmentTableBody,
+        2,
+        "Đang tải danh sách khoa"
+    );
 
-subjectMenu.addEventListener("click", function (event) {
-    event.preventDefault();
+    try {
+        const danhSach = await voiGioiHanThoiGian(
+            layDanhSachKhoaTuCache(),
+            "Quá thời gian tải danh sách khoa."
+        );
 
-    hienThiSection(subjectSection, subjectMenu);
-    window.location.hash = "quan-ly-mon-hoc";
+        const danhSachDaSapXep = [...danhSach].sort(function (a, b) {
+            return String(a.makhoa).localeCompare(String(b.makhoa), "vi");
+        });
 
-    taiDanhSachMonHoc();
+        hienThiDanhSachKhoaQuanLy(danhSachDaSapXep);
+    } catch (loi) {
+        console.error("Không thể tải danh sách khoa:", loi);
+        hienThiTrangThaiBang(
+            departmentTableBody,
+            2,
+            layThongBaoLoiTaiDuLieu(loi),
+            "error",
+            taiDanhSachKhoaQuanLy
+        );
+    }
+}
+
+
+function moModalThemKhoa() {
+    departmentForm.reset();
+    departmentFormError.textContent = "";
+    saveDepartmentButton.disabled = false;
+    saveDepartmentButton.textContent = "Lưu khoa";
+    departmentModal.classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+    departmentCodeInput.focus();
+}
+
+
+function dongModalThemKhoa() {
+    departmentModal.classList.add("hidden");
+    document.body.style.overflow = "";
+    departmentFormError.textContent = "";
+}
+
+
+openDepartmentModalButton.addEventListener("click", moModalThemKhoa);
+closeDepartmentModalButton.addEventListener("click", dongModalThemKhoa);
+cancelDepartmentModalButton.addEventListener("click", dongModalThemKhoa);
+
+
+departmentModal.addEventListener("click", function (event) {
+    if (event.target === departmentModal) {
+        dongModalThemKhoa();
+    }
 });
 
 
+document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" &&
+        !departmentModal.classList.contains("hidden")) {
+        dongModalThemKhoa();
+    }
+});
 
 
+departmentCodeInput.addEventListener("input", function () {
+    departmentCodeInput.value = departmentCodeInput.value
+        .toUpperCase()
+        .replace(/\s+/g, "");
+});
 
-async function taiDanhSachMonHoc() {
-    subjectTableBody.innerHTML = `
-        <tr>
-            <td colspan="4">
-                Đang tải danh sách môn học...
-            </td>
-        </tr>
-    `;
+
+departmentForm.addEventListener("submit", async function (event) {
+    event.preventDefault();
+    departmentFormError.textContent = "";
+
+    const maKhoa = departmentCodeInput.value.trim().toUpperCase();
+    const tenKhoa = departmentNameInput.value.trim();
+
+    if (!/^[A-Z0-9_-]{2,10}$/.test(maKhoa)) {
+        departmentFormError.textContent =
+            "Mã khoa phải có 2–10 ký tự chữ, số, gạch ngang hoặc gạch dưới.";
+        departmentCodeInput.focus();
+        return;
+    }
+
+    if (tenKhoa.length < 2 || tenKhoa.length > 100) {
+        departmentFormError.textContent =
+            "Tên khoa phải có từ 2 đến 100 ký tự.";
+        departmentNameInput.focus();
+        return;
+    }
+
+    const noiDungNutCu = saveDepartmentButton.textContent;
+    saveDepartmentButton.disabled = true;
+    saveDepartmentButton.textContent = "Đang lưu...";
 
     try {
         const { db } = await import(
             "/static/js/firebase-config.js"
         );
 
-        const { collection, getDocs } = await import(
+        const { doc, runTransaction } = await import(
             "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js"
         );
 
+        const thamChieuKhoa = doc(db, "khoa", maKhoa);
 
-        const ketQua = await getDocs(
-            collection(db, "monhoc")
+        await runTransaction(db, async function (transaction) {
+            const taiLieuKhoa = await transaction.get(thamChieuKhoa);
+
+            if (taiLieuKhoa.exists()) {
+                const loiTrungMa = new Error(`Mã khoa ${maKhoa} đã tồn tại.`);
+                loiTrungMa.code = "department/already-exists";
+                throw loiTrungMa;
+            }
+
+            transaction.set(thamChieuKhoa, {
+                tenkhoa: tenKhoa
+            });
+        });
+
+        _cachecacLuaChonKhoa = null;
+        _promiseTaiDanhSachKhoa = null;
+
+        await Promise.all([
+            taiDanhSachKhoaQuanLy(),
+            taiDanhSachKhoa()
+        ]);
+
+        dongModalThemKhoa();
+        hienThiThongBao(`Đã thêm khoa ${maKhoa}.`, "success");
+    } catch (loi) {
+        console.error("Không thể thêm khoa:", loi);
+
+        departmentFormError.textContent =
+            loi?.code === "department/already-exists"
+                ? loi.message
+                : layThongBaoLoiTaiDuLieu(loi);
+    } finally {
+        saveDepartmentButton.disabled = false;
+        saveDepartmentButton.textContent = noiDungNutCu;
+    }
+});
+
+
+function nhanTrangThaiYeuCau(trangThai) {
+    return {
+        pending: "Đang chờ",
+        approved: "Đã chấp nhận",
+        rejected: "Đã từ chối"
+    }[trangThai] || trangThai;
+}
+
+
+async function goiApiYeuCau(url, options = {}) {
+    const { auth } = await import("/static/js/firebase-config.js");
+    if (!auth.currentUser) throw new Error("Phiên đăng nhập không hợp lệ.");
+    const token = await auth.currentUser.getIdToken();
+    const response = await fetch(url, {
+        ...options,
+        headers: {
+            Authorization: `Bearer ${token}`,
+            ...(options.body ? { "Content-Type": "application/json" } : {})
+        }
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Không thể xử lý yêu cầu.");
+    return data;
+}
+
+
+function hienThiYeuCauMoKhoa(danhSach) {
+    permissionTableBody.replaceChildren();
+    const boLoc = permissionStatusFilter.value;
+    const daLoc = danhSach.filter((item) => boLoc === "all" || item.status === boLoc);
+    if (!daLoc.length) {
+        hienThiTrangThaiBang(permissionTableBody, 6, "Không có yêu cầu phù hợp.");
+        return;
+    }
+
+    daLoc.forEach((item) => {
+        const dong = document.createElement("tr");
+        dong.appendChild(taoO(item.email));
+        const loiNhan = taoO(item.message);
+        loiNhan.className = "permission-message-cell";
+        dong.appendChild(loiNhan);
+        const doiChieu = document.createElement("td");
+        const diem = document.createElement("span");
+        const tong = Number(item.validationTotal || 4);
+        const soDiem = Number(item.validationScore || 0);
+        diem.className = `permission-score ${soDiem === tong ? "complete" : soDiem >= 3 ? "partial" : "low"}`;
+        diem.textContent = `${soDiem}/${tong}`;
+        const chiTietDoiChieu = document.createElement("div");
+        chiTietDoiChieu.className = "permission-score-details";
+        (item.validationDetails || []).forEach((detail) => {
+            const tieuChi = document.createElement("span");
+            tieuChi.className = detail.passed ? "passed" : "failed";
+            tieuChi.textContent = `${detail.passed ? "✓" : "✗"} ${detail.label}`;
+            chiTietDoiChieu.appendChild(tieuChi);
+        });
+        doiChieu.append(diem, chiTietDoiChieu);
+        dong.appendChild(doiChieu);
+        dong.appendChild(taoO(item.createdAtMillis ? new Date(item.createdAtMillis).toLocaleString("vi-VN") : "Vừa gửi"));
+        const trangThai = document.createElement("td");
+        const nhan = document.createElement("span");
+        nhan.className = `permission-status ${item.status}`;
+        nhan.textContent = nhanTrangThaiYeuCau(item.status);
+        trangThai.appendChild(nhan);
+        dong.appendChild(trangThai);
+
+        const thaoTac = document.createElement("td");
+        thaoTac.className = "permission-actions";
+        if (item.status === "pending") {
+            const chapNhan = document.createElement("button");
+            chapNhan.type = "button";
+            chapNhan.className = "permission-approve";
+            chapNhan.textContent = "Chấp nhận";
+            chapNhan.addEventListener("click", () => xuLyYeuCauMoKhoa(item, "approved"));
+            const tuChoi = document.createElement("button");
+            tuChoi.type = "button";
+            tuChoi.className = "permission-reject";
+            tuChoi.textContent = "Từ chối";
+            tuChoi.addEventListener("click", () => xuLyYeuCauMoKhoa(item, "rejected"));
+            thaoTac.append(chapNhan, tuChoi);
+        } else {
+            thaoTac.textContent = "Đã xử lý";
+        }
+        dong.appendChild(thaoTac);
+        permissionTableBody.appendChild(dong);
+    });
+}
+
+
+let boNhoYeuCauMoKhoa = [];
+
+async function taiYeuCauMoKhoa() {
+    hienThiDangTaiBang(permissionTableBody, 6, "Đang tải yêu cầu mở khóa");
+    try {
+        const data = await goiApiYeuCau("/api/admin/login-unlock-requests");
+        boNhoYeuCauMoKhoa = data.requests || [];
+        hienThiYeuCauMoKhoa(boNhoYeuCauMoKhoa);
+    } catch (loi) {
+        hienThiTrangThaiBang(permissionTableBody, 6, loi.message, "error", taiYeuCauMoKhoa);
+    }
+}
+
+
+async function xuLyYeuCauMoKhoa(item, trangThai) {
+    const dongY = await xacNhan(
+        `${trangThai === "approved" ? "Mở khóa" : "Từ chối mở khóa"} tài khoản ${item.email}?`
+    );
+    if (!dongY) return;
+    try {
+        await goiApiYeuCau(`/api/admin/login-unlock-requests/${item.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ status: trangThai })
+        });
+        hienThiThongBao(trangThai === "approved" ? "Đã cho phép mở khóa đăng nhập." : "Đã từ chối mở khóa.", "success");
+        await taiYeuCauMoKhoa();
+    } catch (loi) {
+        hienThiThongBao(loi.message, "error");
+    }
+}
+
+
+permissionStatusFilter?.addEventListener("change", () => {
+    hienThiYeuCauMoKhoa(boNhoYeuCauMoKhoa);
+});
+
+
+function hienThiSection(sectionCanHien, menuCanChon) {
+    const cacSection = [
+        dashboardSection,
+        studentSection,
+        teacherSection,
+        departmentSection,
+        subjectSection,
+        courseSection,
+        permissionSection
+    ];
+
+    const cacMenu = [
+        overviewMenu,
+        studentMenu,
+        teacherMenu,
+        departmentMenu,
+        subjectMenu,
+        courseMenu,
+        permissionMenu
+    ];
+
+    cacSection.forEach(function (section) {
+        section.classList.add("hidden-section");
+    });
+
+    cacMenu.forEach(function (menu) {
+        menu.classList.remove("active");
+    });
+
+    const dangOTrangTongQuan = menuCanChon === overviewMenu;
+    statCards.classList.toggle("hidden-section", !dangOTrangTongQuan);
+
+    if (sectionCanHien) {
+        sectionCanHien.classList.remove("hidden-section");
+    }
+
+    menuCanChon.classList.add("active");
+}
+
+
+const cacTrangAdmin = {
+    "": {
+        menu: overviewMenu,
+        section: dashboardSection,
+        taiDuLieu: taiThongKeTongQuan
+    },
+    "quan-ly-sinh-vien": {
+        menu: studentMenu,
+        section: studentSection,
+        taiDuLieu: taiDanhSachSinhVien
+    },
+    "quan-ly-giao-vien": {
+        menu: teacherMenu,
+        section: teacherSection,
+        taiDuLieu: taiDanhSachGiaoVien
+    },
+    "quan-ly-khoa": {
+        menu: departmentMenu,
+        section: departmentSection,
+        taiDuLieu: taiDanhSachKhoaQuanLy
+    },
+    "quan-ly-mon-hoc": {
+        menu: subjectMenu,
+        section: subjectSection,
+        taiDuLieu: taiDanhSachMonHoc
+    },
+    "quan-ly-lop-mon": {
+        menu: courseMenu,
+        section: courseSection,
+        taiDuLieu: taiDanhSachLopMon
+    },
+    "yeu-cau-mo-khoa": {
+        menu: permissionMenu,
+        section: permissionSection,
+        taiDuLieu: taiYeuCauMoKhoa
+    }
+};
+
+
+function layHashHienTai() {
+    return window.location.hash.replace(/^#/, "").trim();
+}
+
+
+function hienThiTrangTheoHash() {
+    const hash = layHashHienTai();
+    const trang = cacTrangAdmin[hash] || cacTrangAdmin[""];
+
+    hienThiSection(trang.section, trang.menu);
+    trang.taiDuLieu();
+}
+
+
+Object.entries(cacTrangAdmin).forEach(function ([hash, trang]) {
+    trang.menu.addEventListener("click", function (event) {
+        event.preventDefault();
+
+        const hashMoi = hash ? `#${hash}` : "#";
+
+        if (window.location.hash === hashMoi || (!hash && !layHashHienTai())) {
+            hienThiTrangTheoHash();
+            return;
+        }
+
+        window.location.hash = hash;
+    });
+});
+
+
+window.addEventListener("hashchange", hienThiTrangTheoHash);
+
+
+
+
+
+async function taiDanhSachMonHoc() {
+    hienThiDangTaiBang(subjectTableBody, 4, "Đang tải danh sách môn học");
+
+    try {
+        const ketQua = await voiGioiHanThoiGian(
+            (async function () {
+                const { db } = await import(
+                    "/static/js/firebase-config.js"
+                );
+
+                const { collection, getDocs } = await import(
+                    "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js"
+                );
+
+                return getDocs(collection(db, "monhoc"));
+            })(),
+            "Quá thời gian tải danh sách môn học."
         );
 
 
@@ -2254,14 +3176,7 @@ async function taiDanhSachMonHoc() {
 
 
         if (danhSach.length === 0) {
-            subjectTableBody.innerHTML = `
-                <tr>
-                    <td colspan="4">
-                        Chưa có môn học nào.
-                    </td>
-                </tr>
-            `;
-
+            hienThiTrangThaiBang(subjectTableBody, 4, "Chưa có môn học nào.");
             return;
         }
 
@@ -2294,15 +3209,16 @@ async function taiDanhSachMonHoc() {
             `;
         }).join("");
 
+        subjectTableBody.setAttribute("aria-busy", "false");
         subjectTableBody.innerHTML = cacDong;
     } catch (loi) {
-        subjectTableBody.innerHTML = `
-            <tr>
-                <td colspan="4">
-                    ${loi.message}
-                </td>
-            </tr>
-        `;
+        hienThiTrangThaiBang(
+            subjectTableBody,
+            4,
+            layThongBaoLoiTaiDuLieu(loi),
+            "error",
+            taiDanhSachMonHoc
+        );
     }
 }
 
@@ -2456,10 +3372,9 @@ subjectForm.addEventListener("submit", async function (event) {
 
         await taiDanhSachMonHoc();
 
-        alert(
-            dangSua
-                ? "Cập nhật môn học thành công."
-                : "Thêm môn học thành công."
+        hienThiThongBao(
+            dangSua ? "Cập nhật môn học thành công." : "Thêm môn học thành công.",
+            "success"
         );
 
 
@@ -2491,7 +3406,7 @@ function moModalSuaMonHoc(mamon) {
     );
 
     if (!monHoc) {
-        alert("Không tìm thấy thông tin môn học.");
+        hienThiThongBao("Không tìm thấy thông tin môn học.", "error");
         return;
     }
 
@@ -2542,12 +3457,9 @@ subjectTableBody.addEventListener(
         const mamon = deleteButton.dataset.mamon;
 
         if (!mamon || mamon === "undefined") {
-            alert("Không lấy được mã môn học.");
+            hienThiThongBao("Không lấy được mã môn học.", "error");
             return;
         }
-        
-        console.log("Mã môn JavaScript gửi xóa:", mamon);
-
 
         const monHoc = danhSachMonHocHienTai.find(
             function (mon) {
@@ -2559,7 +3471,7 @@ subjectTableBody.addEventListener(
             ? monHoc.tenmon
             : mamon;
 
-        const dongYXoa = confirm(
+        const dongYXoa = await xacNhan(
             `Bạn có chắc muốn xóa môn "${tenMon}" không?`
         );
 
@@ -2592,11 +3504,11 @@ subjectTableBody.addEventListener(
 
             await taiDanhSachMonHoc();
 
-            alert("Xóa môn học thành công.");  
-            
-            
+            hienThiThongBao("Xóa môn học thành công.", "success");
+
+
         } catch (loi) {
-            alert(loi.message);
+            hienThiThongBao(loi.message, "error");
 
             deleteButton.disabled = false;
             deleteButton.textContent = "Xóa";
@@ -2612,3 +3524,4 @@ subjectTableBody.addEventListener(
 
 
 taiDanhSachKhoa();
+hienThiTrangTheoHash();
