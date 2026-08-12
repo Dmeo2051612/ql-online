@@ -2446,7 +2446,9 @@ function traLoiTroLy(cauHoiGoc) {
     const tongTinChi = danhSachMonDaDangKy.reduce((tong, lop) => tong + Number(lop.sotinchi || 0), 0);
     const monDuocNhac = layCacMonDuocNhac(cauHoi);
     const giaoVienDuocNhac = layCacGiaoVienDuocNhac(cauHoi);
-    const laCauHoiTraCuu = /ai day|giao vien nao|thay co nao|day mon gi|lop cua|mon cua|co lop nao|con cho|sap day|han dang ky|da dang ky/.test(cauHoi);
+    const laYeuCauLocLop = /\b(loc|tim|xem)\b.*\b(lop|mon)\b|\b(lop|mon)\b.*\b(loc|tim|xem)\b|cho toi (?:cac )?(?:lop|mon)/.test(cauHoi);
+    const laCauHoiTraCuu = laYeuCauLocLop
+        || /ai day|giao vien nao|thay co nao|day mon gi|lop cua|mon cua|co lop nao|con cho|sap day|han dang ky|da dang ky/.test(cauHoi);
     const laYeuCauLapLich = /(?:lap|xep|tao|len).*(?:thoi khoa bieu|tkb|lich hoc)/.test(cauHoi)
         || /(?:thoi khoa bieu|tkb).*(?:cho toi|giup toi|phu hop)/.test(cauHoi)
         || (aiNguCanh.dangLapThoiKhoaBieu && !laCauHoiTraCuu
@@ -2469,6 +2471,27 @@ function traLoiTroLy(cauHoiGoc) {
     }
     if (cauHoi.includes("ban la ai") || cauHoi.includes("lam duoc gi") || cauHoi.includes("giup gi")) {
         return "Mình là QL Assistant. Mình có thể lập thời khóa biểu không trùng lịch, lọc theo môn/giảng viên/học kỳ/giờ rảnh, xem lớp còn chỗ, lịch hôm nay, môn đã đăng ký, tổng tín chỉ và cảnh báo xung đột.";
+    }
+
+    if (laYeuCauLocLop && (monDuocNhac.length || giaoVienDuocNhac.length)) {
+        const cacMaMon = new Set(monDuocNhac.map(({ lop }) => String(lop.mamon || "").trim()));
+        const cacMaGiaoVien = new Set(giaoVienDuocNhac.map(({ lop }) => String(lop.magv || "").trim()));
+        const { hocKy, namHoc } = docHocKyVaNamHoc(cauHoi);
+        const thu = docThu(cauHoi);
+        const khoangGio = docKhoangGio(cauHoi);
+        const cacLop = danhSachLopMonCoTheDangKy.filter((lop) => (!cacMaMon.size
+            || cacMaMon.has(String(lop.mamon || "").trim()))
+            && (!cacMaGiaoVien.size || cacMaGiaoVien.has(String(lop.magv || "").trim()))
+            && (!hocKy || Number(lop.hocky) === hocKy)
+            && (!namHoc || Number(lop.namhoc) === namHoc)
+            && (!thu || Number(lop.thu) === thu)
+            && (!khoangGio || (phutTuGio(lop.giobatdau) >= khoangGio.batDau
+                && phutTuGio(lop.gioketthuc) <= khoangGio.ketThuc)))
+            .sort((a, b) => diemUuTienLop(b) - diemUuTienLop(a));
+        if (!cacLop.length) {
+            return "Mình không tìm thấy lớp còn nhận đăng ký đáp ứng đúng các điều kiện lọc đó.";
+        }
+        return `<p>Mình tìm thấy ${cacLop.length} lớp đúng yêu cầu:</p>${cacLop.slice(0, 8).map(taoTheGoiYLop).join("")}`;
     }
 
     if (laYeuCauLapLich) {
