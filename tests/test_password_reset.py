@@ -1,4 +1,5 @@
 import os
+import json
 import re
 import unittest
 from email.message import EmailMessage
@@ -41,6 +42,16 @@ class FakeSMTP:
         FakeSMTP.sent_message = message
 
 
+class FakeBrevoResponse:
+    status = 201
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+
 class PasswordResetTests(unittest.TestCase):
     def test_normalizes_email(self):
         self.assertEqual(_normalize_email("  Student@Example.COM "), "student@example.com")
@@ -66,6 +77,7 @@ class PasswordResetTests(unittest.TestCase):
 
     def test_email_contains_six_digit_otp_and_expiry(self):
         env = {
+            "BREVO_API_KEY": "",
             "SMTP_HOST": "smtp.example.com",
             "SMTP_PORT": "587",
             "SMTP_USE_TLS": "1",
@@ -83,6 +95,33 @@ class PasswordResetTests(unittest.TestCase):
         body = message.get_body(preferencelist=("plain",)).get_content()
         self.assertRegex(body, re.compile(r"\b042731\b"))
         self.assertIn("10 phút", body)
+
+    def test_brevo_email_uses_https_api_with_verified_sender(self):
+        env = {
+            "BREVO_API_KEY": "xkeysib-test-key",
+            "BREVO_SENDER_EMAIL": "sender@example.com",
+            "BREVO_SENDER_NAME": "QL Online",
+        }
+        captured = {}
+
+        def fake_urlopen(request, timeout):
+            captured["url"] = request.full_url
+            captured["headers"] = dict(request.header_items())
+            captured["payload"] = json.loads(request.data.decode("utf-8"))
+            captured["timeout"] = timeout
+            return FakeBrevoResponse()
+
+        with patch.dict(os.environ, env, clear=False), patch(
+            "password_reset_api.urllib.request.urlopen", fake_urlopen
+        ):
+            provider = _send_otp_email("student@example.com", "735204")
+
+        self.assertEqual(provider, "brevo")
+        self.assertEqual(captured["url"], "https://api.brevo.com/v3/smtp/email")
+        self.assertEqual(captured["payload"]["sender"]["email"], "sender@example.com")
+        self.assertEqual(captured["payload"]["to"][0]["email"], "student@example.com")
+        self.assertIn("735204", captured["payload"]["htmlContent"])
+        self.assertEqual(captured["headers"].get("Api-key"), "xkeysib-test-key")
 
 
 if __name__ == "__main__":

@@ -1,10 +1,13 @@
 import hashlib
 import hmac
+import json
 import os
 import re
 import secrets
 import smtplib
 import ssl
+import urllib.error
+import urllib.request
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 
@@ -104,20 +107,14 @@ def _smtp_settings():
     return settings
 
 
-def _send_otp_email(email, otp):
-    settings = _smtp_settings()
-    message = EmailMessage()
-    message["Subject"] = "Mã OTP đặt lại mật khẩu QL Online"
-    message["From"] = settings["sender"]
-    message["To"] = email
-    message.set_content(
+def _otp_email_content(otp):
+    text_content = (
         "Mã OTP đặt lại mật khẩu QL Online của bạn là: "
         f"{otp}\n\nMã có hiệu lực trong {OTP_TTL_MINUTES} phút. "
         "Không cung cấp mã này cho bất kỳ ai.\n\n"
         "Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này."
     )
-    message.add_alternative(
-        f"""
+    html_content = f"""
         <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#172033">
           <h2 style="color:#1d4ed8">QL Online</h2>
           <p>Bạn vừa yêu cầu đặt lại mật khẩu.</p>
@@ -127,9 +124,57 @@ def _send_otp_email(email, otp):
           <p>Mã có hiệu lực trong <strong>{OTP_TTL_MINUTES} phút</strong>. Không cung cấp mã này cho bất kỳ ai.</p>
           <p style="font-size:13px;color:#64748b">Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này.</p>
         </div>
-        """,
-        subtype="html",
+        """
+    return text_content, html_content
+
+
+def _send_otp_with_brevo(email, otp, api_key):
+    sender_email = os.environ.get("BREVO_SENDER_EMAIL", "").strip()
+    sender_name = os.environ.get("BREVO_SENDER_NAME", "QL Online").strip() or "QL Online"
+    if not _valid_email(sender_email):
+        raise RuntimeError("Máy chủ chưa cấu hình BREVO_SENDER_EMAIL hợp lệ.")
+
+    text_content, html_content = _otp_email_content(otp)
+    payload = json.dumps({
+        "sender": {"name": sender_name, "email": sender_email},
+        "to": [{"email": email}],
+        "subject": "Mã OTP đặt lại mật khẩu QL Online",
+        "textContent": text_content,
+        "htmlContent": html_content,
+        "tags": ["password-reset-otp"],
+    }).encode("utf-8")
+    request_object = urllib.request.Request(
+        "https://api.brevo.com/v3/smtp/email",
+        data=payload,
+        headers={
+            "accept": "application/json",
+            "api-key": api_key,
+            "content-type": "application/json",
+            "user-agent": "QL-Online/1.0",
+        },
+        method="POST",
     )
+    try:
+        with urllib.request.urlopen(request_object, timeout=20) as response:
+            if response.status not in {200, 201, 202}:
+                raise RuntimeError("Dịch vụ email Brevo từ chối yêu cầu gửi OTP.")
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(
+            "Brevo từ chối gửi OTP. Hãy kiểm tra API key và sender đã xác minh."
+        ) from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError("Không thể kết nối dịch vụ email Brevo.") from exc
+
+
+def _send_otp_with_smtp(email, otp):
+    settings = _smtp_settings()
+    text_content, html_content = _otp_email_content(otp)
+    message = EmailMessage()
+    message["Subject"] = "Mã OTP đặt lại mật khẩu QL Online"
+    message["From"] = settings["sender"]
+    message["To"] = email
+    message.set_content(text_content)
+    message.add_alternative(html_content, subtype="html")
 
     with smtplib.SMTP(settings["host"], settings["port"], timeout=20) as smtp:
         smtp.ehlo()
@@ -138,6 +183,15 @@ def _send_otp_email(email, otp):
             smtp.ehlo()
         smtp.login(settings["user"], settings["password"])
         smtp.send_message(message)
+
+
+def _send_otp_email(email, otp):
+    brevo_api_key = os.environ.get("BREVO_API_KEY", "").strip()
+    if brevo_api_key:
+        _send_otp_with_brevo(email, otp, brevo_api_key)
+        return "brevo"
+    _send_otp_with_smtp(email, otp)
+    return "smtp"
 
 
 def _json_error(message, status):
