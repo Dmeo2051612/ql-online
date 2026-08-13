@@ -2094,6 +2094,7 @@ calendarNoteForm?.addEventListener("submit", function (suKien) {
     }
     danhSach.push({ id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, ngay, gio, noidung });
     luuGhiChuLich(danhSach);
+    window.dispatchEvent(new CustomEvent("calendar-notes-updated"));
     calendarNoteForm.reset();
     const oNgayGhiChu = document.getElementById("calendar-note-date");
     if (oNgayGhiChu) oNgayGhiChu.value = ngay;
@@ -2103,6 +2104,7 @@ studentCalendar?.addEventListener("click", function (suKien) {
     const nutXoa = suKien.target.closest(".calendar-note-delete");
     if (!nutXoa) return;
     luuGhiChuLich(layGhiChuLich().filter((muc) => muc.id !== nutXoa.dataset.noteId));
+    window.dispatchEvent(new CustomEvent("calendar-notes-updated"));
     veLichHoc();
 });
 

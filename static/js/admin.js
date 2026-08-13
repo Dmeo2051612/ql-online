@@ -536,6 +536,7 @@ const permissionMenu = document.getElementById("permission-menu");
 const permissionSection = document.getElementById("yeu-cau-mo-khoa");
 const permissionTableBody = document.getElementById("permission-table-body");
 const permissionStatusFilter = document.getElementById("permission-status-filter");
+const cleanupPermissionRequests = document.getElementById("cleanup-permission-requests");
 
 const departmentModal =
     document.getElementById("department-modal");
@@ -3018,6 +3019,38 @@ async function xuLyYeuCauMoKhoa(item, trangThai) {
 
 permissionStatusFilter?.addEventListener("change", () => {
     hienThiYeuCauMoKhoa(boNhoYeuCauMoKhoa);
+});
+
+
+cleanupPermissionRequests?.addEventListener("click", async () => {
+    const soYeuCauDaXuLy = boNhoYeuCauMoKhoa.filter((item) => item.status !== "pending").length;
+    if (!soYeuCauDaXuLy) {
+        hienThiThongBao("Không có yêu cầu đã xử lý để dọn dẹp.", "success");
+        return;
+    }
+    const dongY = await xacNhan(
+        `Xóa ${soYeuCauDaXuLy} yêu cầu đã xử lý và các thông báo liên quan? Yêu cầu đang chờ sẽ được giữ lại.`
+    );
+    if (!dongY) return;
+
+    const noiDungCu = cleanupPermissionRequests.textContent;
+    cleanupPermissionRequests.disabled = true;
+    cleanupPermissionRequests.textContent = "Đang dọn...";
+    try {
+        const ketQua = await goiApiYeuCau("/api/admin/login-unlock-requests/processed", {
+            method: "DELETE"
+        });
+        hienThiThongBao(
+            `Đã xóa ${ketQua.deletedRequests || 0} yêu cầu và ${ketQua.deletedNotifications || 0} thông báo liên quan.`,
+            "success"
+        );
+        await taiYeuCauMoKhoa();
+    } catch (loi) {
+        hienThiThongBao(loi.message, "error");
+    } finally {
+        cleanupPermissionRequests.disabled = false;
+        cleanupPermissionRequests.textContent = noiDungCu;
+    }
 });
 
 

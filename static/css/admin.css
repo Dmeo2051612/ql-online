@@ -1095,6 +1095,38 @@ button {
     box-shadow: inset 0 0 0 1px rgba(116, 128, 150, 0.14);
 }
 
+.permission-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.permission-cleanup-button {
+    padding: 11px 15px;
+    color: #b42318;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 750;
+    background: #fff;
+    border: 0;
+    border-radius: 11px;
+    box-shadow: inset 0 0 0 1px rgba(180, 35, 24, 0.24);
+    cursor: pointer;
+    transition: background-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+
+.permission-cleanup-button:hover {
+    background: #fff5f4;
+    box-shadow: inset 0 0 0 1px rgba(180, 35, 24, 0.42), 0 8px 18px rgba(180, 35, 24, 0.08);
+    transform: translateY(-1px);
+}
+
+.permission-cleanup-button:disabled {
+    opacity: 0.58;
+    cursor: wait;
+    transform: none;
+}
+
 .permission-table strong,
 .permission-table small {
     display: block;
@@ -1199,6 +1231,16 @@ button {
     }
 
     .add-button {
+        width: 100%;
+    }
+
+    .permission-header-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .permission-cleanup-button,
+    .permission-header-actions .management-filter {
         width: 100%;
     }
 }

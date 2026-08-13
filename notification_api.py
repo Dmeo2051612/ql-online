@@ -634,6 +634,48 @@ def list_login_unlock_requests():
     return jsonify(requests=items[:200]), 200
 
 
+@notification_api_bp.delete("/api/admin/login-unlock-requests/processed")
+def cleanup_processed_login_unlock_requests():
+    try:
+        admin = _admin_identity()
+    except Exception:
+        return jsonify(error="Phiên đăng nhập không hợp lệ."), 401
+    if not admin:
+        return jsonify(error="Chỉ quản trị viên được dọn dẹp yêu cầu mở khóa."), 403
+
+    database = firestore.client()
+    processed = []
+    for snapshot in database.collection("login_unlock_requests").stream():
+        data = snapshot.to_dict() or {}
+        if str(data.get("status") or "pending").lower() in {"approved", "rejected"}:
+            processed.append(snapshot)
+
+    processed_ids = {snapshot.id for snapshot in processed}
+    related_notifications = []
+    if processed_ids:
+        for snapshot in database.collection("notifications").stream():
+            data = snapshot.to_dict() or {}
+            if (
+                str(data.get("actionType") or "") == "login_unlock"
+                and str(data.get("actionId") or "") in processed_ids
+            ):
+                related_notifications.append(snapshot)
+
+    references = [snapshot.reference for snapshot in processed]
+    references.extend(snapshot.reference for snapshot in related_notifications)
+    for start in range(0, len(references), 400):
+        batch = database.batch()
+        for reference in references[start:start + 400]:
+            batch.delete(reference)
+        batch.commit()
+
+    return jsonify(
+        success=True,
+        deletedRequests=len(processed),
+        deletedNotifications=len(related_notifications),
+    ), 200
+
+
 @notification_api_bp.patch("/api/admin/login-unlock-requests/<request_id>")
 def decide_login_unlock_request(request_id):
     try:

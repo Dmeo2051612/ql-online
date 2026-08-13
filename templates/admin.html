@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#0f172a">
     <title>Quản trị — QL Online</title>
 
-    <link rel="stylesheet" href="/static/css/admin.css?v=13">
+    <link rel="stylesheet" href="/static/css/admin.css?v=14">
     <link rel="stylesheet" href="/static/css/portal-shell.css?v=10">
     <script defer src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
 </head>
@@ -216,12 +216,17 @@
         <section class="dashboard-content management-section hidden-section" id="yeu-cau-mo-khoa">
             <div class="content-header">
                 <div><h2>Yêu cầu mở khóa đăng nhập</h2><p>Tài khoản vẫn bị khóa cho tới khi admin chấp nhận.</p></div>
-                <select id="permission-status-filter" class="management-filter" aria-label="Lọc trạng thái yêu cầu">
-                    <option value="pending">Đang chờ</option>
-                    <option value="all">Tất cả trạng thái</option>
-                    <option value="approved">Đã chấp nhận</option>
-                    <option value="rejected">Đã từ chối</option>
-                </select>
+                <div class="permission-header-actions">
+                    <select id="permission-status-filter" class="management-filter" aria-label="Lọc trạng thái yêu cầu">
+                        <option value="pending">Đang chờ</option>
+                        <option value="all">Tất cả trạng thái</option>
+                        <option value="approved">Đã chấp nhận</option>
+                        <option value="rejected">Đã từ chối</option>
+                    </select>
+                    <button type="button" class="permission-cleanup-button" id="cleanup-permission-requests">
+                        Dọn dẹp
+                    </button>
+                </div>
             </div>
             <div class="table-container">
                 <table class="permission-table">
@@ -1044,9 +1049,9 @@
 
 
 <script type="module" src="/static/js/admin-firebase.js"></script>
-<script type="module" src="/static/js/admin.js?v=18"></script>
+<script type="module" src="/static/js/admin.js?v=19"></script>
 <script type="module" src="/static/js/admin-dashboard.js?v=5"></script>
-<script type="module" src="/static/js/portal-shell.js?v=12"></script>
+<script type="module" src="/static/js/portal-shell.js?v=13"></script>
 
 
 </body>

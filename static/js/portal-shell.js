@@ -18,6 +18,7 @@ const THEME_KEY = "ql-online-theme";
 let currentUser = null;
 let currentProfile = null;
 let notifications = [];
+let localNoteNotifications = [];
 let notificationAbortController = null;
 let editingNotificationId = null;
 let currentRecipientType = "sinhvien";
@@ -25,6 +26,10 @@ let recipientCache = { sinhvien: null, giaovien: null };
 let selectedRecipientUids = new Set();
 let manuallyDeselectedUids = new Set();
 let heartbeatTimer = null;
+let noteReminderTimer = null;
+
+const NOTE_REMINDER_BEFORE_MINUTES = 30;
+const NOTE_REMINDER_AFTER_MINUTES = 60;
 
 
 function escapeHtml(value) {
@@ -533,13 +538,16 @@ function notificationTime(item) {
 
 function visibleNotifications() {
     const role = String(currentProfile?.role || "").toLowerCase();
-    return notifications
+    return [...notifications, ...localNoteNotifications]
         .filter((item) => role === "admin" || item.audiences?.includes(role) || item.recipientUids?.includes(currentUser?.uid))
         .sort((a, b) => (b.createdAtMillis || 0) - (a.createdAtMillis || 0));
 }
 
 
 function recipientDescription(item) {
+    if (item.actionType === "calendar_note") {
+        return "Nhắc lịch cá nhân";
+    }
     if (item.audiences?.includes("admin") || item.recipientType === "admin") {
         return "Chỉ quản trị viên";
     }
@@ -551,6 +559,66 @@ function recipientDescription(item) {
     if (item.audiences?.[0] === "giaovien") return "Tất cả giáo viên";
     if (item.audiences?.[0] === "sinhvien") return "Tất cả sinh viên";
     return "Thông báo cá nhân";
+}
+
+
+function buildLocalNoteNotifications(notes, now, userId) {
+    const beforeWindow = NOTE_REMINDER_BEFORE_MINUTES * 60 * 1000;
+    const afterWindow = NOTE_REMINDER_AFTER_MINUTES * 60 * 1000;
+    return notes.flatMap((note) => {
+        const date = String(note.ngay || "").trim();
+        const time = String(note.gio || "").trim();
+        if (!date || !/^\d{2}:\d{2}$/.test(time)) return [];
+        const scheduledAt = new Date(`${date}T${time}:00`).getTime();
+        if (!Number.isFinite(scheduledAt)) return [];
+        const remaining = scheduledAt - now;
+        if (remaining > beforeWindow || remaining < -afterWindow) return [];
+
+        const formattedTime = new Intl.DateTimeFormat("vi-VN", {
+            dateStyle: "short",
+            timeStyle: "short"
+        }).format(new Date(scheduledAt));
+        return [{
+            id: `calendar-note-${note.id}`,
+            title: remaining >= 0 ? "Ghi chú sắp đến hạn" : "Ghi chú vừa đến hạn",
+            message: `${String(note.noidung || "Ghi chú lịch học")} · ${formattedTime}`,
+            audiences: [],
+            recipientUids: [userId],
+            recipientType: "sinhvien",
+            actionType: "calendar_note",
+            createdAtMillis: scheduledAt - beforeWindow
+        }];
+    });
+}
+
+
+function refreshLocalNoteNotifications() {
+    if (!currentUser || String(currentProfile?.role || "").toLowerCase() !== "sinhvien") {
+        localNoteNotifications = [];
+        renderNotifications();
+        return;
+    }
+
+    let notes = [];
+    try {
+        const studentCode = String(currentProfile?.masv || "").trim();
+        notes = JSON.parse(localStorage.getItem(`ql-online-calendar-notes-${studentCode || "guest"}`) || "[]");
+        if (!Array.isArray(notes)) notes = [];
+    } catch (_) {
+        notes = [];
+    }
+
+    localNoteNotifications = buildLocalNoteNotifications(notes, Date.now(), currentUser.uid);
+    renderNotifications();
+}
+
+
+function startNoteReminderChecks() {
+    window.clearInterval(noteReminderTimer);
+    refreshLocalNoteNotifications();
+    if (String(currentProfile?.role || "").toLowerCase() === "sinhvien") {
+        noteReminderTimer = window.setInterval(refreshLocalNoteNotifications, 60000);
+    }
 }
 
 
@@ -930,16 +998,23 @@ onAuthStateChanged(auth, async (user) => {
         updateProfileUi();
         listenNotifications();
         startPresenceHeartbeat();
+        startNoteReminderChecks();
     } catch (error) {
         console.error("Không thể khởi tạo menu người dùng:", error);
     }
 });
 
 document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") sendPresenceHeartbeat();
+    if (document.visibilityState === "visible") {
+        sendPresenceHeartbeat();
+        refreshLocalNoteNotifications();
+    }
 });
+
+window.addEventListener("calendar-notes-updated", refreshLocalNoteNotifications);
 
 window.addEventListener("beforeunload", () => {
     notificationAbortController?.abort();
     window.clearInterval(heartbeatTimer);
+    window.clearInterval(noteReminderTimer);
 });
