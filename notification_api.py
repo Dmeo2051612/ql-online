@@ -12,6 +12,7 @@ from flask import Blueprint, Response, jsonify, request, stream_with_context
 from firebase_admin import firestore
 
 from firebase_admin_config import get_firebase_auth
+from password_security import hash_password
 
 
 notification_api_bp = Blueprint("notification_api", __name__)
@@ -122,12 +123,20 @@ def create_or_link_student():
                 return jsonify(error="Email này đã được phân quyền cho sinh viên khác."), 409
 
         batch = database.batch()
-        batch.set(user_ref, {
+        user_profile = {
             "email": email,
             "role": "sinhvien",
             "masv": student_id,
             "hoten": full_name,
-        }, merge=True)
+        }
+        if not linked_existing_account:
+            user_profile.update({
+                "passwordChangedAt": datetime.now(timezone.utc),
+                "passwordHistory": [hash_password(password)],
+            })
+        elif not isinstance((existing_profile.to_dict() or {}).get("passwordChangedAt"), datetime):
+            user_profile["passwordChangedAt"] = datetime.now(timezone.utc)
+        batch.set(user_ref, user_profile, merge=True)
         batch.set(student_ref, {
             "uid": user.uid,
             "mail": email,
@@ -153,6 +162,62 @@ def create_or_link_student():
         uid=user.uid,
         linkedExistingAccount=linked_existing_account,
     ), 201
+
+
+@notification_api_bp.patch("/api/admin/departments/<department_id>")
+def update_department(department_id):
+    try:
+        admin = _admin_identity()
+    except Exception:
+        return jsonify(error="Phiên đăng nhập không hợp lệ."), 401
+    if not admin:
+        return jsonify(error="Chỉ quản trị viên được sửa khoa."), 403
+    department_id = str(department_id or "").strip().upper()
+    name = str((request.get_json(silent=True) or {}).get("tenkhoa") or "").strip()
+    if len(name) < 2 or len(name) > 100:
+        return jsonify(error="Tên khoa phải có từ 2 đến 100 ký tự."), 400
+    reference = firestore.client().collection("khoa").document(department_id)
+    if not reference.get().exists:
+        return jsonify(error="Khoa không tồn tại."), 404
+    reference.update({"tenkhoa": name})
+    return jsonify(success=True), 200
+
+
+@notification_api_bp.delete("/api/admin/departments/<department_id>")
+def delete_department(department_id):
+    try:
+        admin = _admin_identity()
+    except Exception:
+        return jsonify(error="Phiên đăng nhập không hợp lệ."), 401
+    if not admin:
+        return jsonify(error="Chỉ quản trị viên được xóa khoa."), 403
+    department_id = str(department_id or "").strip().upper()
+    database = firestore.client()
+    reference = database.collection("khoa").document(department_id)
+    if not reference.get().exists:
+        return jsonify(error="Khoa không tồn tại."), 404
+
+    references = []
+    collection_labels = {
+        "sinhvien": "sinh viên",
+        "giaovien": "giáo viên",
+        "monhoc": "môn học",
+    }
+    for collection_name, collection_label in collection_labels.items():
+        count = 0
+        for snapshot in database.collection(collection_name).stream():
+            data = snapshot.to_dict() or {}
+            if str(data.get("makhoa") or "").strip().upper() == department_id:
+                count += 1
+        if count:
+            references.append(f"{count} {collection_label}")
+    if references:
+        return jsonify(
+            error="Không thể xóa khoa đang được sử dụng bởi " + ", ".join(references) + "."
+        ), 409
+
+    reference.delete()
+    return jsonify(success=True), 200
 
 
 LOCAL_TIMEZONE = timezone(timedelta(hours=7), name="Asia/Ho_Chi_Minh")

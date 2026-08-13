@@ -7,8 +7,8 @@
     <meta name="theme-color" content="#0f172a">
     <title>Quản trị — QL Online</title>
 
-    <link rel="stylesheet" href="/static/css/admin.css?v=14">
-    <link rel="stylesheet" href="/static/css/portal-shell.css?v=10">
+    <link rel="stylesheet" href="/static/css/admin.css?v=15">
+    <link rel="stylesheet" href="/static/css/portal-shell.css?v=11">
     <script defer src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
 </head>
 <body>
@@ -72,6 +72,10 @@
 
                 <a href="#yeu-cau-mo-khoa" class="menu-item" id="permission-menu">
                     Yêu cầu mở khóa
+                </a>
+
+                <a href="#chinh-sach-mat-khau" class="menu-item" id="password-policy-menu">
+                    Chính sách mật khẩu
                 </a>
             </nav>
 
@@ -393,12 +397,50 @@
                         <tr>
                             <th>Mã khoa</th>
                             <th>Tên khoa</th>
+                            <th>Thao tác</th>
                         </tr>
                     </thead>
 
                     <tbody id="department-table-body"></tbody>
                 </table>
             </div>
+        </section>
+
+        <section id="chinh-sach-mat-khau" class="management-section hidden-section">
+            <div class="section-header">
+                <div>
+                    <h2>Chính sách mật khẩu</h2>
+                    <p>Quy định thời hạn và số mật khẩu gần nhất không được phép sử dụng lại.</p>
+                </div>
+            </div>
+            <form id="password-policy-form" class="security-policy-card">
+                <div class="security-policy-heading">
+                    <div>
+                        <strong>Tuổi tối đa của mật khẩu</strong>
+                        <p>Đặt cả ba giá trị bằng 0 để tắt hết hạn mật khẩu. Hệ thống cảnh báo trước 1 giờ.</p>
+                    </div>
+                    <span class="security-policy-badge" id="password-policy-summary">Đang tải...</span>
+                </div>
+                <div class="security-policy-grid">
+                    <label>Giờ
+                        <input id="password-age-hours" type="number" min="0" max="87600" step="1" required>
+                    </label>
+                    <label>Phút
+                        <input id="password-age-minutes" type="number" min="0" max="59" step="1" required>
+                    </label>
+                    <label>Giây
+                        <input id="password-age-seconds" type="number" min="0" max="59" step="1" required>
+                    </label>
+                    <label>Số mật khẩu ghi nhớ
+                        <input id="password-history-count" type="number" min="0" max="24" step="1" required>
+                        <small>0 để tắt; tối đa 24 mật khẩu gần nhất.</small>
+                    </label>
+                </div>
+                <p class="form-error" id="password-policy-error" role="alert"></p>
+                <div class="security-policy-actions">
+                    <button class="primary-button" id="save-password-policy" type="submit">Lưu chính sách</button>
+                </div>
+            </form>
         </section>
 
 
@@ -1049,9 +1091,9 @@
 
 
 <script type="module" src="/static/js/admin-firebase.js"></script>
-<script type="module" src="/static/js/admin.js?v=20"></script>
+<script type="module" src="/static/js/admin.js?v=21"></script>
 <script type="module" src="/static/js/admin-dashboard.js?v=5"></script>
-<script type="module" src="/static/js/portal-shell.js?v=13"></script>
+<script type="module" src="/static/js/portal-shell.js?v=14"></script>
 
 
 </body>

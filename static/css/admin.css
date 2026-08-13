@@ -4,6 +4,65 @@
     box-sizing: border-box;
 }
 
+.security-policy-card {
+    margin-top: 24px;
+    padding: 30px;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 16px 38px rgba(15, 23, 42, 0.08);
+}
+
+.security-policy-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 26px;
+}
+
+.security-policy-heading strong { font-size: 20px; color: #111827; }
+.security-policy-heading p { margin: 7px 0 0; color: #64748b; line-height: 1.55; }
+.security-policy-badge {
+    flex: 0 0 auto;
+    padding: 9px 13px;
+    color: #1d4ed8;
+    background: #eff6ff;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 13px;
+}
+
+.security-policy-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.security-policy-grid label { display: grid; gap: 8px; color: #334155; font-weight: 700; }
+.security-policy-grid input {
+    width: 100%;
+    min-height: 52px;
+    padding: 0 15px;
+    color: #0f172a;
+    background: #f8fafc;
+    border: 1px solid #dbe4f0;
+    border-radius: 12px;
+    font: inherit;
+}
+.security-policy-grid input:focus { outline: 3px solid rgba(37, 99, 235, 0.14); border-color: #2563eb; }
+.security-policy-grid small { color: #7b8798; font-size: 12px; font-weight: 500; line-height: 1.45; }
+.security-policy-actions { display: flex; justify-content: flex-end; margin-top: 24px; }
+
+@media (max-width: 900px) {
+    .security-policy-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+    .security-policy-card { padding: 20px; }
+    .security-policy-heading { flex-direction: column; }
+    .security-policy-grid { grid-template-columns: 1fr; }
+}
+
 :root {
     --admin-bg: #f4f6fb;
     --admin-surface: #ffffff;

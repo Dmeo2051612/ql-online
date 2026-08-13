@@ -9,11 +9,13 @@ except ImportError:
 
 from notification_api import notification_api_bp
 from password_reset_api import password_reset_api_bp
+from password_policy_api import password_policy_api_bp
 
 
 app = Flask(__name__)
 app.register_blueprint(notification_api_bp)
 app.register_blueprint(password_reset_api_bp)
+app.register_blueprint(password_policy_api_bp)
 
 
 @app.after_request

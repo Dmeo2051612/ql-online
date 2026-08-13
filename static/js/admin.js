@@ -352,6 +352,7 @@ async function taiThongKeTongQuan() {
 
 let cheDoForm = "them"
 let maSinhVienDangSua = null;
+let cheDoFormKhoa = "them";
 
 
 let cheDoFormGiaoVien = "them";
@@ -537,6 +538,16 @@ const permissionSection = document.getElementById("yeu-cau-mo-khoa");
 const permissionTableBody = document.getElementById("permission-table-body");
 const permissionStatusFilter = document.getElementById("permission-status-filter");
 const cleanupPermissionRequests = document.getElementById("cleanup-permission-requests");
+const passwordPolicyMenu = document.getElementById("password-policy-menu");
+const passwordPolicySection = document.getElementById("chinh-sach-mat-khau");
+const passwordPolicyForm = document.getElementById("password-policy-form");
+const passwordAgeHours = document.getElementById("password-age-hours");
+const passwordAgeMinutes = document.getElementById("password-age-minutes");
+const passwordAgeSeconds = document.getElementById("password-age-seconds");
+const passwordHistoryCount = document.getElementById("password-history-count");
+const passwordPolicyErrorElement = document.getElementById("password-policy-error");
+const passwordPolicySummary = document.getElementById("password-policy-summary");
+const savePasswordPolicyButton = document.getElementById("save-password-policy");
 
 const departmentModal =
     document.getElementById("department-modal");
@@ -548,6 +559,7 @@ const departmentNameInput =
     document.getElementById("department-name");
 const departmentFormError =
     document.getElementById("department-form-error");
+const departmentModalTitle = document.getElementById("department-modal-title");
 const openDepartmentModalButton =
     document.getElementById("open-department-modal");
 const closeDepartmentModalButton =
@@ -2664,7 +2676,7 @@ function hienThiDanhSachKhoaQuanLy(danhSach) {
     if (!Array.isArray(danhSach) || danhSach.length === 0) {
         hienThiTrangThaiBang(
             departmentTableBody,
-            2,
+            3,
             "Chưa có khoa nào."
         );
         return;
@@ -2675,6 +2687,22 @@ function hienThiDanhSachKhoaQuanLy(danhSach) {
 
         dong.appendChild(taoO(khoa.makhoa));
         dong.appendChild(taoO(khoa.tenkhoa));
+        const thaoTac = document.createElement("td");
+        const nhomNut = document.createElement("div");
+        nhomNut.className = "action-group";
+        const nutSua = document.createElement("button");
+        nutSua.type = "button";
+        nutSua.className = "edit-button";
+        nutSua.textContent = "Sửa";
+        nutSua.addEventListener("click", () => moModalSuaKhoa(khoa));
+        const nutXoa = document.createElement("button");
+        nutXoa.type = "button";
+        nutXoa.className = "delete-button";
+        nutXoa.textContent = "Xóa";
+        nutXoa.addEventListener("click", () => xoaKhoa(khoa));
+        nhomNut.append(nutSua, nutXoa);
+        thaoTac.appendChild(nhomNut);
+        dong.appendChild(thaoTac);
         departmentTableBody.appendChild(dong);
     });
 }
@@ -2683,7 +2711,7 @@ function hienThiDanhSachKhoaQuanLy(danhSach) {
 async function taiDanhSachKhoaQuanLy() {
     hienThiDangTaiBang(
         departmentTableBody,
-        2,
+        3,
         "Đang tải danh sách khoa"
     );
 
@@ -2702,7 +2730,7 @@ async function taiDanhSachKhoaQuanLy() {
         console.error("Không thể tải danh sách khoa:", loi);
         hienThiTrangThaiBang(
             departmentTableBody,
-            2,
+            3,
             layThongBaoLoiTaiDuLieu(loi),
             "error",
             taiDanhSachKhoaQuanLy
@@ -2712,7 +2740,10 @@ async function taiDanhSachKhoaQuanLy() {
 
 
 function moModalThemKhoa() {
+    cheDoFormKhoa = "them";
     departmentForm.reset();
+    departmentCodeInput.disabled = false;
+    departmentModalTitle.textContent = "Thêm khoa";
     departmentFormError.textContent = "";
     saveDepartmentButton.disabled = false;
     saveDepartmentButton.textContent = "Lưu khoa";
@@ -2722,10 +2753,44 @@ function moModalThemKhoa() {
 }
 
 
+function moModalSuaKhoa(khoa) {
+    cheDoFormKhoa = "sua";
+    departmentForm.reset();
+    departmentCodeInput.value = khoa.makhoa;
+    departmentNameInput.value = khoa.tenkhoa;
+    departmentCodeInput.disabled = true;
+    departmentModalTitle.textContent = `Sửa khoa ${khoa.makhoa}`;
+    departmentFormError.textContent = "";
+    saveDepartmentButton.disabled = false;
+    saveDepartmentButton.textContent = "Lưu thay đổi";
+    departmentModal.classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+    departmentNameInput.focus();
+}
+
+
+async function xoaKhoa(khoa) {
+    const dongY = await xacNhan(`Xóa khoa ${khoa.makhoa} - ${khoa.tenkhoa}?`);
+    if (!dongY) return;
+    try {
+        await goiApiYeuCau(`/api/admin/departments/${encodeURIComponent(khoa.makhoa)}`, {
+            method: "DELETE"
+        });
+        _cachecacLuaChonKhoa = null;
+        _promiseTaiDanhSachKhoa = null;
+        await Promise.all([taiDanhSachKhoaQuanLy(), taiDanhSachKhoa()]);
+        hienThiThongBao(`Đã xóa khoa ${khoa.makhoa}.`, "success");
+    } catch (loi) {
+        hienThiThongBao(loi.message, "error");
+    }
+}
+
+
 function dongModalThemKhoa() {
     departmentModal.classList.add("hidden");
     document.body.style.overflow = "";
     departmentFormError.textContent = "";
+    departmentCodeInput.disabled = false;
 }
 
 
@@ -2782,29 +2847,36 @@ departmentForm.addEventListener("submit", async function (event) {
     saveDepartmentButton.textContent = "Đang lưu...";
 
     try {
-        const { db } = await import(
-            "/static/js/firebase-config.js"
-        );
-
-        const { doc, runTransaction } = await import(
-            "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js"
-        );
-
-        const thamChieuKhoa = doc(db, "khoa", maKhoa);
-
-        await runTransaction(db, async function (transaction) {
-            const taiLieuKhoa = await transaction.get(thamChieuKhoa);
-
-            if (taiLieuKhoa.exists()) {
-                const loiTrungMa = new Error(`Mã khoa ${maKhoa} đã tồn tại.`);
-                loiTrungMa.code = "department/already-exists";
-                throw loiTrungMa;
-            }
-
-            transaction.set(thamChieuKhoa, {
-                tenkhoa: tenKhoa
+        if (cheDoFormKhoa === "sua") {
+            await goiApiYeuCau(`/api/admin/departments/${encodeURIComponent(maKhoa)}`, {
+                method: "PATCH",
+                body: JSON.stringify({ tenkhoa: tenKhoa })
             });
-        });
+        } else {
+            const { db } = await import(
+                "/static/js/firebase-config.js"
+            );
+
+            const { doc, runTransaction } = await import(
+                "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js"
+            );
+
+            const thamChieuKhoa = doc(db, "khoa", maKhoa);
+
+            await runTransaction(db, async function (transaction) {
+                const taiLieuKhoa = await transaction.get(thamChieuKhoa);
+
+                if (taiLieuKhoa.exists()) {
+                    const loiTrungMa = new Error(`Mã khoa ${maKhoa} đã tồn tại.`);
+                    loiTrungMa.code = "department/already-exists";
+                    throw loiTrungMa;
+                }
+
+                transaction.set(thamChieuKhoa, {
+                    tenkhoa: tenKhoa
+                });
+            });
+        }
 
         _cachecacLuaChonKhoa = null;
         _promiseTaiDanhSachKhoa = null;
@@ -2815,9 +2887,12 @@ departmentForm.addEventListener("submit", async function (event) {
         ]);
 
         dongModalThemKhoa();
-        hienThiThongBao(`Đã thêm khoa ${maKhoa}.`, "success");
+        hienThiThongBao(
+            cheDoFormKhoa === "sua" ? `Đã cập nhật khoa ${maKhoa}.` : `Đã thêm khoa ${maKhoa}.`,
+            "success"
+        );
     } catch (loi) {
-        console.error("Không thể thêm khoa:", loi);
+        console.error("Không thể lưu khoa:", loi);
 
         departmentFormError.textContent =
             loi?.code === "department/already-exists"
@@ -2826,6 +2901,71 @@ departmentForm.addEventListener("submit", async function (event) {
     } finally {
         saveDepartmentButton.disabled = false;
         saveDepartmentButton.textContent = noiDungNutCu;
+    }
+});
+
+
+function capNhatTomTatChinhSach(maxAgeSeconds, historyCount) {
+    if (!maxAgeSeconds) {
+        passwordPolicySummary.textContent = `Không hết hạn · nhớ ${historyCount} mật khẩu`;
+        return;
+    }
+    const hours = Math.floor(maxAgeSeconds / 3600);
+    const minutes = Math.floor((maxAgeSeconds % 3600) / 60);
+    const seconds = maxAgeSeconds % 60;
+    passwordPolicySummary.textContent = `${hours} giờ ${minutes} phút ${seconds} giây · nhớ ${historyCount}`;
+}
+
+
+async function taiChinhSachMatKhau() {
+    passwordPolicyErrorElement.textContent = "";
+    passwordPolicySummary.textContent = "Đang tải...";
+    try {
+        const data = await goiApiYeuCau("/api/admin/password-policy");
+        const total = Number(data.maxAgeSeconds || 0);
+        passwordAgeHours.value = Math.floor(total / 3600);
+        passwordAgeMinutes.value = Math.floor((total % 3600) / 60);
+        passwordAgeSeconds.value = total % 60;
+        passwordHistoryCount.value = Number(data.historyCount || 0);
+        capNhatTomTatChinhSach(total, Number(data.historyCount || 0));
+    } catch (loi) {
+        passwordPolicyErrorElement.textContent = loi.message;
+        passwordPolicySummary.textContent = "Không tải được";
+    }
+}
+
+
+passwordPolicyForm?.addEventListener("submit", async function (event) {
+    event.preventDefault();
+    passwordPolicyErrorElement.textContent = "";
+    const hours = Number(passwordAgeHours.value || 0);
+    const minutes = Number(passwordAgeMinutes.value || 0);
+    const seconds = Number(passwordAgeSeconds.value || 0);
+    const historyCount = Number(passwordHistoryCount.value || 0);
+    if ([hours, minutes, seconds, historyCount].some((value) => !Number.isInteger(value) || value < 0)) {
+        passwordPolicyErrorElement.textContent = "Các giá trị phải là số nguyên không âm.";
+        return;
+    }
+    if (minutes > 59 || seconds > 59 || historyCount > 24) {
+        passwordPolicyErrorElement.textContent = "Phút và giây tối đa 59; lịch sử tối đa 24.";
+        return;
+    }
+    const maxAgeSeconds = hours * 3600 + minutes * 60 + seconds;
+    const oldText = savePasswordPolicyButton.textContent;
+    savePasswordPolicyButton.disabled = true;
+    savePasswordPolicyButton.textContent = "Đang lưu...";
+    try {
+        await goiApiYeuCau("/api/admin/password-policy", {
+            method: "PUT",
+            body: JSON.stringify({ maxAgeSeconds, historyCount })
+        });
+        capNhatTomTatChinhSach(maxAgeSeconds, historyCount);
+        hienThiThongBao("Đã cập nhật chính sách mật khẩu.", "success");
+    } catch (loi) {
+        passwordPolicyErrorElement.textContent = loi.message;
+    } finally {
+        savePasswordPolicyButton.disabled = false;
+        savePasswordPolicyButton.textContent = oldText;
     }
 });
 
@@ -2995,7 +3135,8 @@ function hienThiSection(sectionCanHien, menuCanChon) {
         departmentSection,
         subjectSection,
         courseSection,
-        permissionSection
+        permissionSection,
+        passwordPolicySection
     ];
 
     const cacMenu = [
@@ -3005,7 +3146,8 @@ function hienThiSection(sectionCanHien, menuCanChon) {
         departmentMenu,
         subjectMenu,
         courseMenu,
-        permissionMenu
+        permissionMenu,
+        passwordPolicyMenu
     ];
 
     cacSection.forEach(function (section) {
@@ -3062,6 +3204,11 @@ const cacTrangAdmin = {
         menu: permissionMenu,
         section: permissionSection,
         taiDuLieu: taiYeuCauMoKhoa
+    },
+    "chinh-sach-mat-khau": {
+        menu: passwordPolicyMenu,
+        section: passwordPolicySection,
+        taiDuLieu: taiChinhSachMatKhau
     }
 };
 

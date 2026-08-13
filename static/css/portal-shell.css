@@ -193,6 +193,20 @@
 .portal-primary-button:disabled { opacity: .6; cursor: wait; }
 .portal-form-message { min-height: 18px; margin: 0; color: #b42318; font-size: 13px; }
 .portal-notification-detail { color: #42526a; line-height: 1.7; white-space: pre-wrap; }
+.portal-password-policy-note {
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    color: #475569;
+    background: #f1f5f9;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.55;
+}
+.portal-password-required { background: rgba(15, 23, 42, 0.78); }
+.portal-password-required .portal-dialog { box-shadow: 0 28px 80px rgba(15, 23, 42, 0.35); }
+.portal-password-required #portal-password-close { display: none; }
+.portal-password-required .portal-password-policy-note { color: #991b1b; background: #fef2f2; }
+.portal-toast-warning { color: #8a4b00; background: #fff7e6; }
 
 
 .portal-recipient-selection { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 12px; color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; font-size: 13px; font-weight: 700; }
@@ -328,6 +342,8 @@ body.portal-dark .portal-notification-item p,
 body.portal-dark .portal-notification-item small,
 body.portal-dark .portal-notification-detail,
 body.portal-dark .portal-profile-summary small { color: #aebed5; }
+body.portal-dark .portal-password-policy-note { color: #cbd5e1; background: #17243e; }
+body.portal-dark .portal-password-required .portal-password-policy-note { color: #fecaca; background: #451a1a; }
 body.portal-dark .portal-popover-heading,
 body.portal-dark .portal-profile-summary { border-color: #26344d; }
 body.portal-dark .portal-dialog-heading h2 { color: #f4f7fb; }

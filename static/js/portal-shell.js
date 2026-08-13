@@ -4,7 +4,7 @@ import {
     EmailAuthProvider,
     onAuthStateChanged,
     reauthenticateWithCredential,
-    updatePassword
+    signOut
 } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
 
 import {
@@ -27,6 +27,9 @@ let selectedRecipientUids = new Set();
 let manuallyDeselectedUids = new Set();
 let heartbeatTimer = null;
 let noteReminderTimer = null;
+let passwordPolicyTimer = null;
+let passwordChangeRequired = false;
+let displayedPasswordWarning = "";
 
 const NOTE_REMINDER_BEFORE_MINUTES = 30;
 const NOTE_REMINDER_AFTER_MINUTES = 60;
@@ -215,9 +218,10 @@ function injectShell() {
             aria-labelledby="portal-password-title">
             <div class="portal-dialog">
                 <div class="portal-dialog-heading"><div><small>BẢO MẬT</small><h2 id="portal-password-title">Đổi mật khẩu</h2></div>
-                    <button class="portal-dialog-close" type="button" data-close-modal="portal-password-modal" aria-label="Đóng">×</button>
+                    <button class="portal-dialog-close" id="portal-password-close" type="button" data-close-modal="portal-password-modal" aria-label="Đóng">×</button>
                 </div>
                 <form id="portal-password-form">
+                    <p class="portal-password-policy-note" id="portal-password-policy-note">Mật khẩu mới phải khác mật khẩu hiện tại và tuân thủ chính sách bảo mật.</p>
                     <label>Mật khẩu hiện tại<input id="portal-current-password" type="password" autocomplete="current-password" required></label>
                     <label>Mật khẩu mới<input id="portal-new-password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required><small>Ít nhất 12 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.</small></label>
                     <label>Nhập lại mật khẩu mới<input id="portal-confirm-password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></label>
@@ -255,6 +259,7 @@ function openModal(id) {
 
 
 function closeModal(id) {
+    if (id === "portal-password-modal" && passwordChangeRequired) return;
     document.getElementById(id)?.classList.add("hidden");
 }
 
@@ -273,7 +278,7 @@ function bindShellEvents() {
     document.addEventListener("keydown", (event) => {
         if (event.key === "Escape") {
             closePopovers();
-            document.querySelectorAll(".portal-modal").forEach((modal) => modal.classList.add("hidden"));
+            document.querySelectorAll(".portal-modal").forEach((modal) => closeModal(modal.id));
         }
     });
     document.querySelectorAll("[data-close-modal]").forEach((button) => button.addEventListener("click", () => closeModal(button.dataset.closeModal)));
@@ -281,7 +286,14 @@ function bindShellEvents() {
         if (event.target === modal) closeModal(modal.id);
     }));
     document.getElementById("portal-compose-open").addEventListener("click", openCreateNotificationModal);
-    document.getElementById("portal-password-open").addEventListener("click", () => openModal("portal-password-modal"));
+    document.getElementById("portal-password-open").addEventListener("click", () => {
+        passwordChangeRequired = false;
+        document.getElementById("portal-password-modal").classList.remove("portal-password-required");
+        document.getElementById("portal-password-title").textContent = "Đổi mật khẩu";
+        document.getElementById("portal-password-policy-note").textContent =
+            "Mật khẩu mới phải khác mật khẩu hiện tại và tuân thủ chính sách bảo mật.";
+        openModal("portal-password-modal");
+    });
     document.getElementById("portal-theme-toggle").addEventListener("click", () => {
         applyTheme(document.body.classList.contains("portal-dark") ? "light" : "dark");
     });
@@ -866,6 +878,49 @@ async function handleComposeNotification(event) {
 }
 
 
+function requirePasswordChange(policyStatus) {
+    passwordChangeRequired = true;
+    const modal = document.getElementById("portal-password-modal");
+    modal.classList.add("portal-password-required");
+    document.getElementById("portal-password-title").textContent = "Mật khẩu đã hết hạn";
+    document.getElementById("portal-password-policy-note").textContent =
+        "Chính sách của nhà trường yêu cầu bạn đổi mật khẩu trước khi tiếp tục sử dụng hệ thống.";
+    openModal("portal-password-modal");
+    document.getElementById("portal-current-password")?.focus();
+}
+
+
+async function checkPasswordPolicy() {
+    window.clearTimeout(passwordPolicyTimer);
+    if (!currentUser) return;
+    try {
+        const status = await fetchAdminApi("/api/password-policy/status");
+        if (status.expired) {
+            requirePasswordChange(status);
+            passwordPolicyTimer = window.setTimeout(checkPasswordPolicy, 30000);
+            return;
+        }
+        const warningKey = String(status.expiresAtMillis || "");
+        if (status.warning && displayedPasswordWarning !== warningKey) {
+            displayedPasswordWarning = warningKey;
+            showToast("Mật khẩu còn dưới 1 giờ hiệu lực. Hãy đổi mật khẩu sớm.", "warning");
+        }
+        if (status.enabled) {
+            const waitMilliseconds = Math.max(
+                1000,
+                Math.min(60000, Number(status.remainingSeconds || 0) * 1000 + 500)
+            );
+            passwordPolicyTimer = window.setTimeout(checkPasswordPolicy, waitMilliseconds);
+        } else {
+            passwordPolicyTimer = window.setTimeout(checkPasswordPolicy, 60000);
+        }
+    } catch (error) {
+        console.error("Không thể kiểm tra thời hạn mật khẩu:", error);
+        passwordPolicyTimer = window.setTimeout(checkPasswordPolicy, 60000);
+    }
+}
+
+
 async function handlePasswordChange(event) {
     event.preventDefault();
     const form = event.currentTarget;
@@ -880,6 +935,10 @@ async function handlePasswordChange(event) {
         status.textContent = policyError;
         return;
     }
+    if (currentPassword === newPassword) {
+        status.textContent = "Mật khẩu mới phải khác mật khẩu hiện tại.";
+        return;
+    }
     if (newPassword !== confirmation) {
         status.textContent = "Hai lần nhập mật khẩu chưa khớp.";
         return;
@@ -889,15 +948,24 @@ async function handlePasswordChange(event) {
     try {
         const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
         await reauthenticateWithCredential(currentUser, credential);
-        await updatePassword(currentUser, newPassword);
+        await currentUser.getIdToken(true);
+        await fetchAdminApi("/api/password-policy/change", {
+            method: "POST",
+            body: JSON.stringify({
+                currentPassword,
+                newPassword
+            })
+        });
         form.reset();
-        closeModal("portal-password-modal");
-        showToast("Đổi mật khẩu thành công.");
+        passwordChangeRequired = false;
+        showToast("Đổi mật khẩu thành công. Vui lòng đăng nhập lại.");
+        await signOut(auth);
+        window.location.href = "/";
     } catch (error) {
         console.error("Không thể đổi mật khẩu:", error);
         status.textContent = String(error?.code || "").includes("invalid-credential")
             ? "Mật khẩu hiện tại không đúng."
-            : "Không thể đổi mật khẩu. Vui lòng thử lại.";
+            : (error.message || "Không thể đổi mật khẩu. Vui lòng thử lại.");
     } finally {
         button.disabled = false;
         button.textContent = "Cập nhật";
@@ -996,6 +1064,7 @@ onAuthStateChanged(auth, async (user) => {
         currentUser = user;
         currentProfile = profileSnapshot.data();
         updateProfileUi();
+        await checkPasswordPolicy();
         listenNotifications();
         startPresenceHeartbeat();
         startNoteReminderChecks();
@@ -1017,4 +1086,5 @@ window.addEventListener("beforeunload", () => {
     notificationAbortController?.abort();
     window.clearInterval(heartbeatTimer);
     window.clearInterval(noteReminderTimer);
+    window.clearTimeout(passwordPolicyTimer);
 });

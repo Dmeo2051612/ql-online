@@ -15,6 +15,11 @@ from flask import Blueprint, jsonify, request
 from firebase_admin import firestore
 
 from firebase_admin_config import get_firebase_auth
+from password_security import (
+    build_password_history,
+    normalize_password_policy,
+    password_matches_history,
+)
 
 
 password_reset_api_bp = Blueprint("password_reset_api", __name__)
@@ -392,8 +397,30 @@ def complete_password_reset():
         if policy_error:
             return _json_error(policy_error, 400)
 
-        auth_client.update_user(str(data.get("uid") or ""), password=password)
-        auth_client.revoke_refresh_tokens(str(data.get("uid") or ""))
+        uid = str(data.get("uid") or "")
+        profile_reference = database.collection("users").document(uid)
+        profile_snapshot = profile_reference.get()
+        profile = profile_snapshot.to_dict() or {} if profile_snapshot.exists else {}
+        policy_snapshot = database.collection("system_settings").document("password_policy").get()
+        policy = normalize_password_policy(policy_snapshot.to_dict() if policy_snapshot.exists else {})
+        history = list(profile.get("passwordHistory") or [])
+        enforced_history = history[:policy["historyCount"]]
+        if password_matches_history(password, enforced_history):
+            return _json_error(
+                f"Mật khẩu mới trùng với một trong {policy['historyCount']} mật khẩu gần nhất.",
+                409,
+            )
+
+        auth_client.update_user(uid, password=password)
+        auth_client.revoke_refresh_tokens(uid)
+        if profile_snapshot.exists:
+            profile_reference.set({
+                "passwordChangedAt": now,
+                "passwordHistory": build_password_history(
+                    password, history, policy["historyCount"]
+                ),
+                "passwordExpiryWarningKey": firestore.DELETE_FIELD,
+            }, merge=True)
         reference.delete()
         return _json_success({"success": True})
     except RuntimeError as exc:
