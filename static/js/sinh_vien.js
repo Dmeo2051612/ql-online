@@ -2130,6 +2130,8 @@ const aiNguCanh = {
     yeuCauLapLich: "",
     maMonGanNhat: "",
     maGiaoVienGanNhat: "",
+    maLopGanNhat: "",
+    cacMaLopSoSanhGanNhat: [],
     boLocDoiTuongGanNhat: {
         maMon: "", maGiaoVien: "", hocKy: null, namHoc: null, thu: null, khoangGio: null
     },
@@ -2172,6 +2174,10 @@ function chuanHoaCauHoiAI(giaTri) {
         .trim();
     const thayThe = [
         [/\b(minh|em|to|tui)\b/g, "toi"],
+        [/\b(ko|k|khum|hok)\b/g, "khong"],
+        [/\b(dc|đc)\b/g, "duoc"],
+        [/\b(bn)\b/g, "bao nhieu"],
+        [/\b(gv)\b/g, "giao vien"],
         [/\bdang ki\b/g, "dang ky"],
         [/\bhoc ki\b/g, "hoc ky"],
         [/\b(tra cuu|kiem|search)\b/g, "tim"],
@@ -2184,6 +2190,7 @@ function chuanHoaCauHoiAI(giaTri) {
         [/\b(con slot|con suat|chua day|chua kin)\b/g, "con cho"],
         [/\b(con bao nhieu cho|con may cho|con may slot|full chua|day chua|het cho chua)\b/g, "con cho"],
         [/\b(dung gio|dung lich|trung gio|chong gio|chong lich|va lich)\b/g, "trung lich"],
+        [/\b(trung tkb|dung tkb|chong tkb)\b/g, "trung lich"],
         [/\b(giang day|phu trach|dung lop|day lop)\b/g, "day"],
         [/\b(bua nay|bay gio)\b/g, "hom nay"],
         [/\b(hom bua nay|ngay hom nay)\b/g, "hom nay"],
@@ -2202,7 +2209,9 @@ function chuanHoaCauHoiAI(giaTri) {
         [/\b(day cai gi|day nhung gi|mo nhung lop nao)\b/g, "day mon nao"],
         [/\b(hoc vao luc nao|hoc vao khi nao|lich ra sao|lich the nao)\b/g, "hoc luc nao"],
         [/\b(ong ay|ba ay|nguoi do|nguoi nay|thay kia|co kia)\b/g, "giao vien do"],
-        [/\b(cai do|cai nay|hoc phan do|hoc phan nay|mon kia|lop kia)\b/g, "mon do"],
+        [/\b(cai do|cai nay|hoc phan do|hoc phan nay|mon kia)\b/g, "mon do"],
+        [/\b(khac j|khac gi nhau|co gi khac)\b/g, "khac gi"],
+        [/\b(vs)\b/g, "voi"],
         [/\b(mot)\s+(mon|lop)\b/g, "1 $2"],
         [/\b(hai)\s+(mon|lop)\b/g, "2 $2"],
         [/\b(ba)\s+(mon|lop)\b/g, "3 $2"],
@@ -2214,6 +2223,8 @@ function chuanHoaCauHoiAI(giaTri) {
 }
 
 function nhanDienYDinhAI(cauHoi) {
+    if (/\b(so sanh|khac gi|chon giua|lop nao hon)\b/.test(cauHoi)) return "so_sanh_lop";
+    if (/\b(trung lich|xung dot|phu hop)\b/.test(cauHoi)) return "kiem_tra_lop";
     if (/\b(ai day|do ai day|giao vien nao|thay co nao)\b/.test(cauHoi)) return "giao_vien_cua_mon";
     if (/\b(day mon nao|day mon gi|lop cua|mon cua|co lop nao)\b/.test(cauHoi)) return "lop_cua_giao_vien";
     if (/\b(con cho|sap day|het cho)\b/.test(cauHoi)) return "cho_trong";
@@ -2248,7 +2259,9 @@ function boSungYDinhChoCauNoiTiep(cauHoi) {
         kha_nang_dang_ky: "dang ky duoc",
         trang_thai_dang_ky: "da dang ky chua",
         so_luong: "bao nhieu lop",
-        loc_lop: "tim lop"
+        loc_lop: "tim lop",
+        so_sanh_lop: "so sanh lop",
+        kiem_tra_lop: "kiem tra lop co phu hop"
     }[aiNguCanh.yDinhGanNhat];
     return cumTu ? `${cauHoi} ${cumTu}` : cauHoi;
 }
@@ -2412,6 +2425,60 @@ function layCacGiaoVienDuocNhac(cauHoi) {
     return ketQua
         .filter((muc) => !coKetQuaChinhXac || muc.mucDoKhop < 2)
         .sort((a, b) => a.mucDoKhop - b.mucDoKhop || a.viTri - b.viTri);
+}
+
+function layCacLopDuocNhac(cauHoi) {
+    const cauLien = String(cauHoi || "").replace(/\s+/g, "");
+    const danhMuc = new Map();
+    [...danhSachLopMonCoTheDangKy, ...danhSachMonDaDangKy].forEach((lop) => {
+        const maLop = String(lop.malopmon || "").trim();
+        if (maLop && !danhMuc.has(maLop)) danhMuc.set(maLop, lop);
+    });
+    return [...danhMuc.values()].map((lop) => {
+        const maLop = chuanHoaTimKiem(lop.malopmon).replace(/\s+/g, "");
+        const maLopKhongSoKhongDau = maLop.replace(/^([a-z]+)0+/, "$1");
+        const mauNhanSoKhong = new RegExp(maLop.replace(/0/g, "[0o]"));
+        const khopDayDu = cauLien.match(mauNhanSoKhong);
+        const viTri = khopDayDu?.index ?? (maLopKhongSoKhongDau.length >= 3
+            ? cauLien.indexOf(maLopKhongSoKhongDau) : -1);
+        return { lop, viTri };
+    }).filter((muc) => muc.viTri >= 0).sort((a, b) => a.viTri - b.viTri);
+}
+
+function cacLopCungMonKhac(lopGoc) {
+    return danhSachLopMonCoTheDangKy.filter((lop) => String(lop.mamon || "").trim() === String(lopGoc?.mamon || "").trim()
+        && String(lop.malopmon || "").trim() !== String(lopGoc?.malopmon || "").trim());
+}
+
+function moTaTinhTrangLop(lop) {
+    const conLai = Math.max(0, Number(lop.sisotoida || 0) - Number(lop.sisodadangky || 0));
+    const daDangKy = danhSachMonDaDangKy.some((muc) => String(muc.malopmon || "").trim() === String(lop.malopmon || "").trim());
+    const cacLopTrung = danhSachMonDaDangKy.filter((muc) => String(muc.malopmon || "").trim() !== String(lop.malopmon || "").trim()
+        && haiLichHocTrungNhau(lop, muc));
+    if (daDangKy) return { phuHop: false, noiDung: `Bạn đã đăng ký lớp ${lop.malopmon} rồi.` };
+    if (!lopMonCoLichDayDu(lop)) return { phuHop: false, noiDung: `Lớp ${lop.malopmon} chưa có lịch học đầy đủ nên chưa thể kiểm tra xung đột.` };
+    if (conLai <= 0) return { phuHop: false, noiDung: `Lớp ${lop.malopmon} đã đủ sĩ số.` };
+    if (cacLopTrung.length) {
+        return {
+            phuHop: false,
+            noiDung: `Lớp ${lop.malopmon} trùng lịch với ${cacLopTrung.map((muc) => muc.malopmon).join(", ")} trong thời khóa biểu của bạn.`
+        };
+    }
+    const dangMo = danhSachLopMonCoTheDangKy.some((muc) => String(muc.malopmon || "").trim() === String(lop.malopmon || "").trim());
+    if (!dangMo) return { phuHop: false, noiDung: `Lớp ${lop.malopmon} hiện không nằm trong danh sách còn nhận đăng ký.` };
+    return { phuHop: true, noiDung: `Lớp ${lop.malopmon} đang còn ${conLai} chỗ và không trùng với lịch đã đăng ký của bạn.` };
+}
+
+function taoSoSanhHaiLop(lopA, lopB) {
+    const choA = Math.max(0, Number(lopA.sisotoida || 0) - Number(lopA.sisodadangky || 0));
+    const choB = Math.max(0, Number(lopB.sisotoida || 0) - Number(lopB.sisodadangky || 0));
+    const coTrungNhau = haiLichHocTrungNhau(lopA, lopB);
+    const nhanCho = choA === choB
+        ? `Hai lớp đều còn ${choA} chỗ.`
+        : `${choA > choB ? lopA.malopmon : lopB.malopmon} còn nhiều hơn ${Math.abs(choA - choB)} chỗ.`;
+    return `<p>So sánh ${chuyenThanhVanBanAnToan(lopA.malopmon)} và ${chuyenThanhVanBanAnToan(lopB.malopmon)}:</p>
+        ${taoTheGoiYLop(lopA)}${taoTheGoiYLop(lopB)}
+        <p class="ai-plan-${coTrungNhau ? "warning" : "safe"}">${coTrungNhau ? "⚠ Hai lớp trùng lịch với nhau." : "✓ Hai lớp không trùng lịch với nhau."} ${chuyenThanhVanBanAnToan(nhanCho)}</p>`;
 }
 
 function lopMonCoLichDayDu(lop) {
@@ -2673,6 +2740,8 @@ function traLoiTroLy(cauHoiGoc) {
     const tongTinChi = danhSachMonDaDangKy.reduce((tong, lop) => tong + Number(lop.sotinchi || 0), 0);
     let monDuocNhac = layCacMonDuocNhac(cauHoi);
     const monMoiDuocNhac = monDuocNhac.length > 0;
+    let lopDuocNhac = layCacLopDuocNhac(cauHoi);
+    const lopMoiDuocNhac = lopDuocNhac.length > 0;
     const coDauHieuNoiTiepDoiTuong = /^(con|the|vay|vay con|neu la|doi sang|chuyen sang|hoc ky|thu|t[2-7]|buoi|ca|luc|tu)\b/.test(cauHoi)
         || /\b(thi sao|the nao|van vay|van the|con cho|sap day)\b/.test(cauHoi);
     const coTuTenGiaoVienTrongCau = [...danhSachLopMonCoTheDangKy, ...danhSachMonDaDangKy].some((lop) => (
@@ -2690,6 +2759,7 @@ function traLoiTroLy(cauHoiGoc) {
     );
     const giaoVienMoiDuocNhac = giaoVienDuocNhac.length > 0;
     const tatCaLop = [...danhSachLopMonCoTheDangKy, ...danhSachMonDaDangKy];
+    const dangNhacLopTruoc = /\b(lop)\s*(do|nay|kia|vua roi)\b/.test(cauHoi);
     const dangNhacMonTruoc = /\b(mon|lop)\s*(do|nay|vua roi)\b|\bno\b/.test(cauHoi);
     const dangNhacGiaoVienTruoc = dangNhacGiaoVienBangDaiTu;
     if (!monDuocNhac.length && dangNhacMonTruoc && aiNguCanh.maMonGanNhat) {
@@ -2700,6 +2770,10 @@ function traLoiTroLy(cauHoiGoc) {
         const lop = tatCaLop.find((muc) => String(muc.magv || "").trim() === aiNguCanh.maGiaoVienGanNhat);
         if (lop) giaoVienDuocNhac = [{ lop, viTri: 0 }];
     }
+    if (!lopDuocNhac.length && dangNhacLopTruoc && aiNguCanh.maLopGanNhat) {
+        const lop = tatCaLop.find((muc) => String(muc.malopmon || "").trim() === aiNguCanh.maLopGanNhat);
+        if (lop) lopDuocNhac = [{ lop, viTri: 0 }];
+    }
     if (!monDuocNhac.length && !giaoVienDuocNhac.length && coDauHieuNoiTiepDoiTuong) {
         const boLocTruoc = aiNguCanh.boLocDoiTuongGanNhat || {};
         const lopTheoMon = tatCaLop.find((muc) => String(muc.mamon || "").trim() === boLocTruoc.maMon);
@@ -2709,6 +2783,10 @@ function traLoiTroLy(cauHoiGoc) {
     }
     if (monDuocNhac.length) aiNguCanh.maMonGanNhat = String(monDuocNhac[0].lop.mamon || "").trim();
     if (giaoVienDuocNhac.length) aiNguCanh.maGiaoVienGanNhat = String(giaoVienDuocNhac[0].lop.magv || "").trim();
+    if (lopDuocNhac.length) aiNguCanh.maLopGanNhat = String(lopDuocNhac[0].lop.malopmon || "").trim();
+    if (lopDuocNhac.length >= 2) {
+        aiNguCanh.cacMaLopSoSanhGanNhat = lopDuocNhac.slice(0, 2).map(({ lop }) => String(lop.malopmon || "").trim());
+    }
     if (monMoiDuocNhac || giaoVienMoiDuocNhac) {
         aiNguCanh.boLocDoiTuongGanNhat = {
             maMon: monMoiDuocNhac ? String(monDuocNhac[0]?.lop.mamon || "").trim() : "",
@@ -2766,6 +2844,8 @@ function traLoiTroLy(cauHoiGoc) {
         aiNguCanh.yeuCauLapLich = "";
         aiNguCanh.maMonGanNhat = "";
         aiNguCanh.maGiaoVienGanNhat = "";
+        aiNguCanh.maLopGanNhat = "";
+        aiNguCanh.cacMaLopSoSanhGanNhat = [];
         aiNguCanh.boLocDoiTuongGanNhat = {
             maMon: "", maGiaoVien: "", hocKy: null, namHoc: null, thu: null, khoangGio: null
         };
@@ -2793,6 +2873,15 @@ function traLoiTroLy(cauHoiGoc) {
     if (/^(ok|okay|oke|uh|u|duoc|hieu roi|tot|hay)$/.test(cauHoi)) {
         return "Được rồi. Bạn cứ nói tiếp điều muốn tìm hoặc thay đổi, mình sẽ dựa trên ngữ cảnh vừa trao đổi.";
     }
+    if (/^(dung roi|chinh xac|chuan|phai roi|yes)\b/.test(cauHoi)) {
+        return "Mình đã hiểu đúng ý rồi. Bạn có thể hỏi tiếp về lớp đó, đổi điều kiện hoặc nhờ mình so sánh phương án khác.";
+    }
+    if (/\b(toi chua hieu|giai thich lai|noi ro hon|y la sao)\b/.test(cauHoi)) {
+        return "Mình có thể trả lời ngắn hơn theo từng bước. Bạn hãy gửi một tên môn, mã lớp hoặc giảng viên trước; sau đó hỏi tiếp về lịch, chỗ trống, tín chỉ hay khả năng trùng lịch.";
+    }
+    if (/\b(huy mon|bo mon|rut mon|huy dang ky)\b/.test(cauHoi)) {
+        return "Để hủy một lớp đã đăng ký, bạn mở mục “Môn đã đăng ký” rồi bấm Hủy ở đúng lớp. Mình không tự hủy thay bạn để tránh thao tác nhầm.";
+    }
     if (/^(xin loi|sorry)\b/.test(cauHoi)) {
         return "Không sao đâu. Bạn cứ sửa lại tên môn, giảng viên, học kỳ hoặc khung giờ; mình sẽ dùng thông tin mới nhất.";
     }
@@ -2818,6 +2907,37 @@ function traLoiTroLy(cauHoiGoc) {
             namHoc: hocKyVaNamHocTrongCau.namHoc || truoc.namHoc,
             dangHoiNganhIT: /\b(it|cntt)\b|cong nghe thong tin/.test(cauHoi) || truoc.dangHoiNganhIT
         });
+    }
+
+    const dangNoiHaiLopTruoc = /\b(hai|2) lop (nay|do)|\blop nao (hon|nhieu cho|it cho)|\bchung (co )?trung|\bnen chon lop nao/.test(cauHoi);
+    if (lopDuocNhac.length < 2 && dangNoiHaiLopTruoc && aiNguCanh.cacMaLopSoSanhGanNhat.length >= 2) {
+        lopDuocNhac = aiNguCanh.cacMaLopSoSanhGanNhat.map((maLop) => ({
+            lop: tatCaLop.find((muc) => String(muc.malopmon || "").trim() === maLop), viTri: 0
+        })).filter((muc) => muc.lop);
+    }
+    const laSoSanhLop = /\b(so sanh|khac gi|chon giua|lop nao (hon|nhieu cho|it cho)|hai lop.*trung|chung.*trung|nen chon lop nao)\b/.test(cauHoi)
+        || (lopDuocNhac.length >= 2 && (/\btrung.*nhau\b/.test(cauHoi) || /\bhay\b/.test(cauHoi)));
+    if (laSoSanhLop && lopDuocNhac.length >= 2) {
+        aiNguCanh.cacMaLopSoSanhGanNhat = lopDuocNhac.slice(0, 2).map(({ lop }) => String(lop.malopmon || "").trim());
+        return taoSoSanhHaiLop(lopDuocNhac[0].lop, lopDuocNhac[1].lop);
+    }
+
+    if (lopDuocNhac.length) {
+        const lop = lopDuocNhac[0].lop;
+        const dangHoiTinhTrang = /\b(trung lich|xung dot|phu hop|tai sao.*khong|vi sao.*khong|dang ky duoc|co nen dang ky)\b/.test(cauHoi);
+        if (dangHoiTinhTrang) return moTaTinhTrangLop(lop).noiDung;
+
+        if (/\b(lop khac|khac gio|ca khac|cung mon|thay the)\b/.test(cauHoi)) {
+            const cacLopKhac = cacLopCungMonKhac(lop).filter((muc) => lopKhongTrungDanhSach(muc, danhSachMonDaDangKy));
+            if (!cacLopKhac.length) return `Hiện môn ${lop.tenmon} chưa có lớp khác còn nhận đăng ký và không trùng lịch.`;
+            return `<p>Các lớp khác của môn ${chuyenThanhVanBanAnToan(lop.tenmon)}:</p>${cacLopKhac.slice(0, 6).map(taoTheGoiYLop).join("")}`;
+        }
+
+        if (/\b(ai day|do ai day|giao vien nao|thay co nao|con cho|han dang ky|may gio|gio nao|ca nao|buoi nao|thu may|khi nao|hoc luc nao|tin chi|chi tiet)\b/.test(cauHoi)
+            || lopMoiDuocNhac) {
+            const tinhTrang = moTaTinhTrangLop(lop);
+            return `<p>Thông tin lớp ${chuyenThanhVanBanAnToan(lop.malopmon)}:</p>${taoTheGoiYLop(lop)}<small class="ai-plan-${tinhTrang.phuHop ? "safe" : "warning"}">${chuyenThanhVanBanAnToan(tinhTrang.noiDung)}</small>`;
+        }
     }
 
     const cacGiaoVienKhacNhau = [...new Map(

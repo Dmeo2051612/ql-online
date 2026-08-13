@@ -193,6 +193,40 @@ assertAnswer("ngày mai có tiết gì", ["OLD1"]);
 assertAnswer("cô Vân dạy những gì", ["LM001"], ["LM002"]);
 assertAnswer("người đó hạn chót khi nào", ["LM001"], ["LM002"]);
 
+// Hiểu mã lớp như một đối tượng riêng và giữ ngữ cảnh theo đúng lớp.
+assertAnswer("LM002 học lúc nào", ["LM002", "Thứ 2", "07:00–09:30"], ["LM007"]);
+assertAnswer("lớp đó còn bn chỗ", ["LM002", "30 chỗ"], ["LM007"]);
+assertAnswer("lớp đó ai dạy", ["LM002", "Thầy Hoàng"], ["LM007"]);
+assertAnswer("lm 004 học khi nào", ["LM004", "Thứ 4", "14:00–16:00"], ["LM001"]);
+assertAnswer("lớp kia bao nhiêu tín chỉ", ["LM004", "3 tín chỉ"], ["LM001"]);
+assertAnswer("chi tiết LM001", ["Thông tin lớp LM001", "Cô Vân", "30 chỗ"], ["LM002"]);
+assertAnswer("LM001 có phù hợp với tôi không", ["không trùng", "30 chỗ"]);
+assertAnswer("LM001 có trùng tkb của tôi ko", ["không trùng"]);
+assertAnswer("LM002 đăng ký nổi không", ["không trùng", "30 chỗ"]);
+assertAnswer("LM002 bao nhiêu tín chỉ và còn chỗ", ["3 tín chỉ", "30 chỗ"], ["LM007"]);
+
+assertAnswer("so sánh LM002 với LM007", ["So sánh LM002 và LM007", "30 chỗ", "40 chỗ", "trùng lịch với nhau"]);
+assertAnswer("hai lớp này lớp nào nhiều chỗ hơn", ["LM007 còn nhiều hơn 10 chỗ"]);
+assertAnswer("nên chọn lớp nào", ["LM002", "LM007", "40 chỗ"]);
+assertAnswer("LM002 và LM007 có trùng nhau không", ["trùng lịch với nhau"]);
+assertAnswer("LM002 hay LM007", ["So sánh LM002 và LM007"]);
+assertAnswer("LM002 có lớp khác cùng môn không", ["LM007"], ["LM002 ·"]);
+assertAnswer("không, ý tôi là LM004", ["Thông tin lớp LM004", "Lập trình Web"], ["LM001"]);
+assertAnswer("lớp đó có ca khác không", ["chưa có lớp khác"]);
+
+assertAnswer("đúng rồi", ["hiểu đúng ý"]);
+assertAnswer("tôi chưa hiểu, giải thích lại", ["từng bước"]);
+assertAnswer("tôi muốn hủy đăng ký", ["Môn đã đăng ký", "không tự hủy"]);
+assertAnswer("GV2 có bn lớp", ["1 lớp", "Cô Vân"]);
+assertAnswer("môn OS có bn lớp", ["2 lớp", "Hệ điều hành"]);
+assertAnswer("lm 001 chi tiết giúp tui", ["Thông tin lớp LM001", "An toàn thông tin"]);
+assertAnswer("LM004 vs LM001 khác j", ["So sánh LM004 và LM001", "không trùng lịch với nhau"]);
+assertAnswer("lmoo2 còn chỗ ko", ["LM002", "30 chỗ"], ["LM007"]);
+assertAnswer("lm7 học khi nào", ["LM007", "Thứ 2", "07:00–09:30"], ["LM002"]);
+assertAnswer("lớp đó deadline khi nào", ["LM007"], ["LM002"]);
+assertAnswer("còn lm2 thì sao", ["LM002"], ["LM007"]);
+assertAnswer("vậy lớp đó có trùng lịch ko", ["không trùng", "LM002"]);
+
 const viTriTrongVung = gioiHanViTriTroLy(100, -30, 390, 590, { left: 325, top: 0, right: 1440, bottom: 900 }, 1440, 900);
 if (viTriTrongVung.x !== 337 || viTriTrongVung.y !== 12) throw new Error("Chatbot không được giới hạn ở mép trái/trên của vùng nội dung");
 const viTriSatGoc = gioiHanViTriTroLy(2000, 2000, 390, 590, { left: 325, top: 0, right: 1440, bottom: 900 }, 1440, 900);
@@ -235,7 +269,7 @@ locVaSapXepLopMon();
 if (availableCourseBody.innerHTML.includes("LM007") || !availableCourseBody.innerHTML.includes("LM002")) {
     throw new Error("Bộ lọc Học kỳ 2 hiển thị sai lớp môn");
 }
-console.log("STUDENT_AI_INTENTS_OK: 100 scenarios");
+console.log("STUDENT_AI_INTENTS_OK: 130 scenarios");
 `;
 
 vm.runInNewContext(fs.readFileSync("static/js/sinh_vien.js", "utf8") + testCode, context);
