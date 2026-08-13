@@ -2125,7 +2125,6 @@ const aiChatMessages = document.getElementById("ai-chat-messages");
 const aiChatForm = document.getElementById("ai-chat-form");
 const aiChatInput = document.getElementById("ai-chat-input");
 const aiChatDragHandle = document.getElementById("ai-chat-drag-handle");
-const aiChatMoveStatus = document.getElementById("ai-chat-move-status");
 let aiDaChao = false;
 const aiNguCanh = {
     dangLapThoiKhoaBieu: false,
@@ -3072,7 +3071,6 @@ document.getElementById("ai-chat-close")?.addEventListener("click", () => {
     aiChatToggle?.setAttribute("aria-expanded", "false");
 });
 
-let aiChoPhepDiChuyen = false;
 let aiDangDiChuyen = false;
 let aiDoLechKeoX = 0;
 let aiDoLechKeoY = 0;
@@ -3092,19 +3090,6 @@ function layVungDiChuyenTroLy() {
     };
 }
 
-function capNhatCheDoDiChuyenTroLy(duocPhep) {
-    aiChoPhepDiChuyen = Boolean(duocPhep) && window.innerWidth > 760;
-    aiDangDiChuyen = false;
-    aiChatbox?.classList.toggle("is-move-enabled", aiChoPhepDiChuyen);
-    aiChatbox?.classList.remove("is-dragging");
-    aiChatDragHandle?.setAttribute("aria-grabbed", aiChoPhepDiChuyen ? "true" : "false");
-    if (aiChatMoveStatus) {
-        aiChatMoveStatus.textContent = aiChoPhepDiChuyen
-            ? "Giữ chuột để kéo · Esc để khóa"
-            : "Nháy đúp để di chuyển";
-    }
-}
-
 function datViTriTroLyTrongPhamVi(x, y) {
     if (!aiChatbox) return;
     const khung = aiChatbox.getBoundingClientRect();
@@ -3117,14 +3102,23 @@ function datViTriTroLyTrongPhamVi(x, y) {
     aiChatbox.style.bottom = "auto";
 }
 
+function datLaiViTriTroLy() {
+    aiDangDiChuyen = false;
+    aiChatbox?.classList.remove("is-dragging");
+    aiChatbox?.style.removeProperty("left");
+    aiChatbox?.style.removeProperty("top");
+    aiChatbox?.style.removeProperty("right");
+    aiChatbox?.style.removeProperty("bottom");
+}
+
 aiChatDragHandle?.addEventListener("dblclick", (suKien) => {
     if (suKien.target.closest("button") || window.innerWidth <= 760) return;
     suKien.preventDefault();
-    capNhatCheDoDiChuyenTroLy(!aiChoPhepDiChuyen);
+    datLaiViTriTroLy();
 });
 
 aiChatDragHandle?.addEventListener("pointerdown", (suKien) => {
-    if (!aiChoPhepDiChuyen || suKien.button !== 0 || suKien.target.closest("button")) return;
+    if (window.innerWidth <= 760 || suKien.button !== 0 || suKien.target.closest("button")) return;
     const khung = aiChatbox.getBoundingClientRect();
     aiDangDiChuyen = true;
     aiDoLechKeoX = suKien.clientX - khung.left;
@@ -3149,15 +3143,11 @@ function dungDiChuyenTroLy(suKien) {
 aiChatDragHandle?.addEventListener("pointerup", dungDiChuyenTroLy);
 aiChatDragHandle?.addEventListener("pointercancel", dungDiChuyenTroLy);
 document.addEventListener("keydown", (suKien) => {
-    if (suKien.key === "Escape" && aiChoPhepDiChuyen) capNhatCheDoDiChuyenTroLy(false);
+    if (suKien.key === "Escape" && aiDangDiChuyen) dungDiChuyenTroLy();
 });
 window.addEventListener("resize", () => {
     if (window.innerWidth <= 760) {
-        capNhatCheDoDiChuyenTroLy(false);
-        aiChatbox?.style.removeProperty("left");
-        aiChatbox?.style.removeProperty("top");
-        aiChatbox?.style.removeProperty("right");
-        aiChatbox?.style.removeProperty("bottom");
+        datLaiViTriTroLy();
         return;
     }
     if (aiChatbox && aiChatbox.style.left) {
