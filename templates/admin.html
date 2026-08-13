@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#0f172a">
     <title>Quản trị — QL Online</title>
 
-    <link rel="stylesheet" href="/static/css/admin.css?v=16">
+    <link rel="stylesheet" href="/static/css/admin.css?v=17">
     <link rel="stylesheet" href="/static/css/portal-shell.css?v=11">
     <script defer src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
 </head>
@@ -1015,6 +1015,49 @@
 
 
 
+<div class="modal-overlay hidden" id="temporary-password-modal">
+    <div
+        class="modal-card temporary-password-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="temporary-password-title"
+    >
+        <div class="modal-header">
+            <div>
+                <h2 id="temporary-password-title">Cấp mật khẩu tạm thời</h2>
+                <p>Tài khoản sẽ bị đăng xuất và buộc đổi mật khẩu ở lần đăng nhập kế tiếp.</p>
+            </div>
+            <button type="button" class="close-modal" id="close-temporary-password-modal" aria-label="Đóng">×</button>
+        </div>
+
+        <div class="temporary-password-account" id="temporary-password-account"></div>
+        <form id="temporary-password-form" novalidate>
+            <div class="form-grid temporary-password-grid">
+                <div class="form-group">
+                    <label for="temporary-password">Mật khẩu tạm thời</label>
+                    <input type="password" id="temporary-password" minlength="12" maxlength="128" autocomplete="new-password" required>
+                    <small>Ít nhất 12 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.</small>
+                </div>
+                <div class="form-group">
+                    <label for="temporary-password-confirm">Nhập lại mật khẩu tạm thời</label>
+                    <input type="password" id="temporary-password-confirm" minlength="12" maxlength="128" autocomplete="new-password" required>
+                </div>
+            </div>
+            <div class="temporary-password-tools">
+                <button type="button" id="generate-temporary-password">Tạo mật khẩu mạnh</button>
+                <button type="button" id="toggle-temporary-password">Hiện mật khẩu</button>
+                <button type="button" id="copy-temporary-password">Sao chép mật khẩu</button>
+            </div>
+            <p class="form-message" id="temporary-password-message" role="alert"></p>
+            <div class="modal-actions">
+                <button type="button" class="cancel-button" id="cancel-temporary-password">Hủy</button>
+                <button type="submit" class="save-button" id="save-temporary-password">Cấp mật khẩu tạm</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
 <div class="modal-overlay hidden" id="department-modal">
     <div
         class="modal-card department-modal-card"
@@ -1091,7 +1134,7 @@
 
 
 <script type="module" src="/static/js/admin-firebase.js"></script>
-<script type="module" src="/static/js/admin.js?v=22"></script>
+<script type="module" src="/static/js/admin.js?v=23"></script>
 <script type="module" src="/static/js/admin-dashboard.js?v=5"></script>
 <script type="module" src="/static/js/portal-shell.js?v=15"></script>
 

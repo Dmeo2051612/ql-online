@@ -133,6 +133,7 @@ def password_policy_status():
             warning=False,
             expired=False,
             exempt=True,
+            mustChangePassword=False,
         ), 200
 
     database = firestore.client()
@@ -142,6 +143,7 @@ def password_policy_status():
     profile_snapshot = profile_ref.get()
     profile = profile_snapshot.to_dict() or {} if profile_snapshot.exists else {}
     now = _utc_now()
+    must_change_password = bool(profile.get("mustChangePassword"))
     changed_at = profile.get("passwordChangedAt")
     if not isinstance(changed_at, datetime):
         changed_at = now
@@ -149,7 +151,7 @@ def password_policy_status():
 
     expires_at = changed_at + timedelta(seconds=max_age_seconds) if max_age_seconds else None
     remaining_seconds = max(0, int((expires_at - now).total_seconds())) if expires_at else 0
-    expired = bool(expires_at and now >= expires_at)
+    expired = must_change_password or bool(expires_at and now >= expires_at)
     warning = bool(expires_at and not expired and remaining_seconds <= 3600)
 
     if warning:
@@ -177,7 +179,71 @@ def password_policy_status():
         remainingSeconds=remaining_seconds,
         warning=warning,
         expired=expired,
+        mustChangePassword=must_change_password,
     ), 200
+
+
+@password_policy_api_bp.post("/api/admin/accounts/<uid>/temporary-password")
+def set_temporary_password(uid):
+    try:
+        admin = _admin_identity()
+    except Exception:
+        return jsonify(error="Phiên đăng nhập không hợp lệ."), 401
+    if not admin:
+        return jsonify(error="Chỉ quản trị viên được cấp mật khẩu tạm thời."), 403
+
+    target_uid = str(uid or "").strip()
+    payload = request.get_json(silent=True) or {}
+    temporary_password = str(payload.get("temporaryPassword") or "")
+    if not target_uid or not temporary_password:
+        return jsonify(error="Vui lòng nhập mật khẩu tạm thời."), 400
+
+    database = firestore.client()
+    profile_ref = database.collection("users").document(target_uid)
+    profile_snapshot = profile_ref.get()
+    if not profile_snapshot.exists:
+        return jsonify(error="Không tìm thấy tài khoản cần cấp mật khẩu tạm thời."), 404
+
+    profile = profile_snapshot.to_dict() or {}
+    role = str(profile.get("role") or "").strip().lower()
+    if role == "admin":
+        return jsonify(error="Không thể áp dụng mật khẩu tạm thời cho tài khoản quản trị."), 403
+    if role not in {"sinhvien", "giaovien"}:
+        return jsonify(error="Loại tài khoản không hỗ trợ mật khẩu tạm thời."), 400
+
+    email = str(profile.get("email") or "").strip().lower()
+    policy_error = _password_policy_error(temporary_password, email)
+    if policy_error:
+        return jsonify(error=policy_error), 400
+
+    policy = _load_policy(database)
+    history = list(profile.get("passwordHistory") or [])
+    if password_matches_history(temporary_password, history[:policy["historyCount"]]):
+        return jsonify(
+            error=f"Mật khẩu tạm trùng với một trong {policy['historyCount']} mật khẩu gần nhất."
+        ), 409
+
+    try:
+        auth_api = get_firebase_auth()
+        auth_api.update_user(target_uid, password=temporary_password)
+        auth_api.revoke_refresh_tokens(target_uid)
+    except Exception:
+        return jsonify(error="Không thể cấp mật khẩu tạm thời lúc này."), 500
+
+    profile_ref.set({
+        "mustChangePassword": True,
+        "temporaryPasswordIssuedAt": _utc_now(),
+        "temporaryPasswordIssuedBy": admin["uid"],
+        "passwordChangedAt": _utc_now(),
+        "passwordHistory": build_password_history(
+            temporary_password,
+            history,
+            policy["historyCount"],
+        ),
+        "passwordExpiryWarningKey": firestore.DELETE_FIELD,
+    }, merge=True)
+    _identity_cache.pop(target_uid, None)
+    return jsonify(success=True, mustChangePassword=True), 200
 
 
 @password_policy_api_bp.post("/api/password-policy/change")
@@ -233,6 +299,9 @@ def change_password_with_policy():
             current_password=current_password,
         ),
         "passwordExpiryWarningKey": firestore.DELETE_FIELD,
+        "mustChangePassword": False,
+        "temporaryPasswordIssuedAt": firestore.DELETE_FIELD,
+        "temporaryPasswordIssuedBy": firestore.DELETE_FIELD,
     }, merge=True)
     _identity_cache.pop(identity["uid"], None)
     return jsonify(success=True), 200

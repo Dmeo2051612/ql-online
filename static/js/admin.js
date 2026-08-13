@@ -367,6 +367,18 @@ function taoO(noiDung) {
 }
 
 
+function taoNutCapMatKhauTam(taiKhoan) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "table-action password-action";
+    button.textContent = "Mật khẩu tạm";
+    button.addEventListener("click", function () {
+        moModalMatKhauTam(taiKhoan);
+    });
+    return button;
+}
+
+
 function hienThiDanhSachSinhVien(danhSach) {
     const thanBang = document.getElementById(
         "student-table-body"
@@ -422,6 +434,12 @@ function hienThiDanhSachSinhVien(danhSach) {
 
 
         nhomNut.appendChild(nutSua);
+        nhomNut.appendChild(taoNutCapMatKhauTam({
+            uid: sinhVien.uid,
+            email: sinhVien.mail,
+            name: sinhVien.hoten,
+            role: "Sinh viên"
+        }));
         nhomNut.appendChild(nutXoa);
 
         oThaoTac.appendChild(nhomNut);
@@ -548,6 +566,143 @@ const passwordHistoryCount = document.getElementById("password-history-count");
 const passwordPolicyErrorElement = document.getElementById("password-policy-error");
 const passwordPolicySummary = document.getElementById("password-policy-summary");
 const savePasswordPolicyButton = document.getElementById("save-password-policy");
+const temporaryPasswordModal = document.getElementById("temporary-password-modal");
+const temporaryPasswordForm = document.getElementById("temporary-password-form");
+const temporaryPasswordAccount = document.getElementById("temporary-password-account");
+const temporaryPasswordInput = document.getElementById("temporary-password");
+const temporaryPasswordConfirm = document.getElementById("temporary-password-confirm");
+const temporaryPasswordMessage = document.getElementById("temporary-password-message");
+const closeTemporaryPasswordModal = document.getElementById("close-temporary-password-modal");
+const cancelTemporaryPassword = document.getElementById("cancel-temporary-password");
+const saveTemporaryPassword = document.getElementById("save-temporary-password");
+const generateTemporaryPassword = document.getElementById("generate-temporary-password");
+const toggleTemporaryPassword = document.getElementById("toggle-temporary-password");
+const copyTemporaryPassword = document.getElementById("copy-temporary-password");
+let temporaryPasswordTarget = null;
+
+
+function moModalMatKhauTam(taiKhoan) {
+    temporaryPasswordTarget = taiKhoan;
+    temporaryPasswordForm.reset();
+    temporaryPasswordMessage.textContent = "";
+    temporaryPasswordMessage.classList.remove("success");
+    temporaryPasswordAccount.textContent = `${taiKhoan.role}: ${taiKhoan.name || "-"} · ${taiKhoan.email || "-"}`;
+    temporaryPasswordInput.type = "password";
+    temporaryPasswordConfirm.type = "password";
+    toggleTemporaryPassword.textContent = "Hiện mật khẩu";
+    saveTemporaryPassword.disabled = false;
+    saveTemporaryPassword.textContent = "Cấp mật khẩu tạm";
+    temporaryPasswordModal.classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+    temporaryPasswordInput.focus();
+}
+
+
+function dongModalMatKhauTam() {
+    temporaryPasswordTarget = null;
+    temporaryPasswordModal.classList.add("hidden");
+    document.body.style.overflow = "";
+}
+
+
+function taoMatKhauTamManh() {
+    const groups = ["ABCDEFGHJKLMNPQRSTUVWXYZ", "abcdefghijkmnopqrstuvwxyz", "23456789", "!@#$%&*?"];
+    const all = groups.join("");
+    const values = new Uint32Array(18);
+    window.crypto.getRandomValues(values);
+    const characters = groups.map((group, index) => group[values[index] % group.length]);
+    for (let index = groups.length; index < values.length; index += 1) {
+        characters.push(all[values[index] % all.length]);
+    }
+    for (let index = characters.length - 1; index > 0; index -= 1) {
+        const swapIndex = values[index] % (index + 1);
+        [characters[index], characters[swapIndex]] = [characters[swapIndex], characters[index]];
+    }
+    return characters.join("");
+}
+
+
+generateTemporaryPassword?.addEventListener("click", function () {
+    const generated = taoMatKhauTamManh();
+    temporaryPasswordInput.value = generated;
+    temporaryPasswordConfirm.value = generated;
+    temporaryPasswordInput.type = "text";
+    temporaryPasswordConfirm.type = "text";
+    toggleTemporaryPassword.textContent = "Ẩn mật khẩu";
+    temporaryPasswordMessage.textContent = "Đã tạo mật khẩu mạnh. Hãy sao chép và gửi cho đúng người dùng.";
+    temporaryPasswordMessage.classList.add("success");
+});
+
+
+toggleTemporaryPassword?.addEventListener("click", function () {
+    const show = temporaryPasswordInput.type === "password";
+    temporaryPasswordInput.type = show ? "text" : "password";
+    temporaryPasswordConfirm.type = show ? "text" : "password";
+    toggleTemporaryPassword.textContent = show ? "Ẩn mật khẩu" : "Hiện mật khẩu";
+});
+
+
+copyTemporaryPassword?.addEventListener("click", async function () {
+    if (!temporaryPasswordInput.value) {
+        temporaryPasswordMessage.textContent = "Chưa có mật khẩu để sao chép.";
+        temporaryPasswordMessage.classList.remove("success");
+        return;
+    }
+    try {
+        await navigator.clipboard.writeText(temporaryPasswordInput.value);
+        temporaryPasswordMessage.textContent = "Đã sao chép mật khẩu tạm thời.";
+        temporaryPasswordMessage.classList.add("success");
+    } catch (_) {
+        temporaryPasswordInput.select();
+        temporaryPasswordMessage.textContent = "Hãy nhấn Ctrl+C để sao chép mật khẩu đang được chọn.";
+        temporaryPasswordMessage.classList.remove("success");
+    }
+});
+
+
+temporaryPasswordForm?.addEventListener("submit", async function (event) {
+    event.preventDefault();
+    temporaryPasswordMessage.textContent = "";
+    temporaryPasswordMessage.classList.remove("success");
+    const password = temporaryPasswordInput.value;
+    if (!temporaryPasswordTarget?.uid) {
+        temporaryPasswordMessage.textContent = "Tài khoản chưa được liên kết với Firebase Authentication.";
+        return;
+    }
+    if (password !== temporaryPasswordConfirm.value) {
+        temporaryPasswordMessage.textContent = "Hai lần nhập mật khẩu tạm thời chưa khớp.";
+        return;
+    }
+    const policyError = passwordPolicyError(password, temporaryPasswordTarget.email);
+    if (policyError) {
+        temporaryPasswordMessage.textContent = policyError;
+        return;
+    }
+
+    saveTemporaryPassword.disabled = true;
+    saveTemporaryPassword.textContent = "Đang cấp...";
+    try {
+        await goiApiYeuCau(`/api/admin/accounts/${encodeURIComponent(temporaryPasswordTarget.uid)}/temporary-password`, {
+            method: "POST",
+            body: JSON.stringify({ temporaryPassword: password })
+        });
+        temporaryPasswordMessage.textContent = "Đã cấp mật khẩu tạm. Tài khoản đã bị thu hồi phiên và buộc đổi mật khẩu khi đăng nhập.";
+        temporaryPasswordMessage.classList.add("success");
+        saveTemporaryPassword.textContent = "Đã cấp mật khẩu";
+        hienThiThongBao("Cấp mật khẩu tạm thời thành công.", "success");
+    } catch (error) {
+        temporaryPasswordMessage.textContent = error.message;
+        saveTemporaryPassword.disabled = false;
+        saveTemporaryPassword.textContent = "Cấp mật khẩu tạm";
+    }
+});
+
+
+closeTemporaryPasswordModal?.addEventListener("click", dongModalMatKhauTam);
+cancelTemporaryPassword?.addEventListener("click", dongModalMatKhauTam);
+temporaryPasswordModal?.addEventListener("click", function (event) {
+    if (event.target === temporaryPasswordModal) dongModalMatKhauTam();
+});
 
 const departmentModal =
     document.getElementById("department-modal");
@@ -1191,6 +1346,12 @@ function hienThiDanhSachGiaoVien(danhSach) {
         });
 
         nhomNut.appendChild(nutSua);
+        nhomNut.appendChild(taoNutCapMatKhauTam({
+            uid: giaoVien.uid,
+            email: giaoVien.mail,
+            name: giaoVien.hoten,
+            role: "Giáo viên"
+        }));
         nhomNut.appendChild(nutXoa);
 
         oThaoTac.appendChild(nhomNut);

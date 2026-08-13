@@ -47,6 +47,13 @@ const forcedNewPassword = document.getElementById("forced-new-password");
 const forcedConfirmPassword = document.getElementById("forced-confirm-password");
 const forcedPasswordMessage = document.getElementById("forced-password-message");
 const forcedPasswordSubmit = document.getElementById("forced-password-submit");
+const forcedForgotPassword = document.getElementById("forced-forgot-password");
+const forcedContactSchool = document.getElementById("forced-contact-school");
+const forcedContactForm = document.getElementById("forced-contact-form");
+const forcedContactMessage = document.getElementById("forced-contact-message");
+const forcedContactStatus = document.getElementById("forced-contact-status");
+const cancelForcedContact = document.getElementById("cancel-forced-contact");
+const sendForcedContact = document.getElementById("send-forced-contact");
 
 
 const KHOA_DANG_NHAP_KEY = "ql-online-login-lockout-v1";
@@ -63,6 +70,7 @@ let resetStep = "request";
 let passwordResetRequestId = "";
 let passwordResetToken = "";
 let forcedPasswordEmail = "";
+let returnToForcedPassword = false;
 
 
 auth.languageCode = "vi";
@@ -355,10 +363,74 @@ function hienThiBuocDoiMatKhauBatBuoc(email) {
     document.getElementById("forgot-password-panel")?.classList.add("hidden");
     forcedPasswordAccount.textContent = `Tài khoản: ${forcedPasswordEmail}`;
     forcedPasswordMessage.textContent = "";
+    forcedContactForm.classList.add("hidden");
+    forcedContactStatus.textContent = "";
     forcedPasswordPanel.classList.remove("hidden");
     document.querySelector(".login-card > h1").textContent = "Xác thực bảo mật";
     forcedCurrentPassword.focus();
 }
+
+
+forcedForgotPassword?.addEventListener("click", function () {
+    returnToForcedPassword = true;
+    resetPasswordFlow();
+    resetEmailInput.value = forcedPasswordEmail;
+    forcedPasswordPanel.classList.add("hidden");
+    document.getElementById("forgot-password-panel")?.classList.remove("hidden");
+    document.querySelector(".login-card > h1").textContent = "Đặt lại mật khẩu";
+    resetEmailInput.focus();
+});
+
+
+forcedContactSchool?.addEventListener("click", function () {
+    forcedContactStatus.textContent = "";
+    forcedContactForm.classList.remove("hidden");
+    if (!forcedContactMessage.value.trim()) {
+        forcedContactMessage.value = [
+            "Mã: ",
+            "Họ tên: ",
+            "Khoa: ",
+            `Email: ${forcedPasswordEmail}`,
+            "Lý do: Không thể tự đổi mật khẩu đã hết hạn."
+        ].join("\n");
+    }
+    forcedContactMessage.focus();
+});
+
+
+cancelForcedContact?.addEventListener("click", function () {
+    forcedContactForm.classList.add("hidden");
+    forcedContactStatus.textContent = "";
+});
+
+
+forcedContactForm?.addEventListener("submit", async function (event) {
+    event.preventDefault();
+    forcedContactStatus.textContent = "";
+    sendForcedContact.disabled = true;
+    sendForcedContact.textContent = "Đang gửi...";
+    try {
+        const response = await fetch("/api/login-unlock-requests", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                email: forcedPasswordEmail,
+                message: forcedContactMessage.value.trim()
+            })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Không thể gửi yêu cầu.");
+        forcedContactStatus.textContent = data.alreadySent
+            ? "Yêu cầu hỗ trợ của tài khoản này đang chờ nhà trường xử lý."
+            : "Đã gửi yêu cầu tới nhà trường. Tài khoản vẫn bị khóa cho tới khi mật khẩu được đổi.";
+        forcedContactMessage.readOnly = true;
+    } catch (error) {
+        forcedContactStatus.textContent = error.message || "Không thể gửi yêu cầu.";
+    } finally {
+        sendForcedContact.disabled = false;
+        sendForcedContact.textContent = "Gửi yêu cầu";
+    }
+});
 
 
 function quayLaiDangNhapSauKhiDoiMatKhau() {
@@ -709,6 +781,9 @@ async function completeResetPassword() {
     emailInput.value = resetEmailInput.value.trim();
     passwordResetRequestId = "";
     passwordResetToken = "";
+    returnToForcedPassword = false;
+    window.sessionStorage.removeItem(EMAIL_MAT_KHAU_HET_HAN_KEY);
+    window.history.replaceState({}, "", "/");
     setResetStep("done");
     resetMessage.className = "message-success";
     resetMessage.textContent = "Đặt lại mật khẩu thành công. Bạn có thể quay lại đăng nhập.";
@@ -763,6 +838,13 @@ resendResetCodeButton?.addEventListener("click", async function () {
 
 cancelForgotPasswordButton?.addEventListener("click", function () {
     resetPasswordFlow();
+    if (returnToForcedPassword && forcedPasswordEmail) {
+        returnToForcedPassword = false;
+        document.getElementById("forgot-password-panel")?.classList.add("hidden");
+        forcedPasswordPanel.classList.remove("hidden");
+        document.querySelector(".login-card > h1").textContent = "Xác thực bảo mật";
+        forcedCurrentPassword.focus();
+    }
 });
 
 

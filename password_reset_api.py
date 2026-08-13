@@ -422,6 +422,9 @@ def complete_password_reset():
                     password, history, policy["historyCount"]
                 ),
                 "passwordExpiryWarningKey": firestore.DELETE_FIELD,
+                "mustChangePassword": False,
+                "temporaryPasswordIssuedAt": firestore.DELETE_FIELD,
+                "temporaryPasswordIssuedBy": firestore.DELETE_FIELD,
             }, merge=True)
         reference.delete()
         return _json_success({"success": True})

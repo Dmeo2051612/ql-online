@@ -7,7 +7,7 @@
         <meta name="theme-color" content="#2563eb">
         <title>Đăng nhập — QL Online</title>
 
-        <link rel="stylesheet" href="/static/css/login.css?v=5">
+        <link rel="stylesheet" href="/static/css/login.css?v=6">
     </head>
 
     <body>
@@ -103,6 +103,23 @@
                         <button type="submit" class="forced-password-submit" id="forced-password-submit">
                             Cập nhật mật khẩu
                         </button>
+                    </form>
+                    <div class="forced-password-help">
+                        <button type="button" id="forced-forgot-password">Quên mật khẩu?</button>
+                        <button type="button" id="forced-contact-school">Liên hệ nhà trường</button>
+                    </div>
+                    <form class="forced-contact-form hidden" id="forced-contact-form" novalidate>
+                        <div class="lockout-format-hint">
+                            <strong>Nhập thông tin theo cú pháp:</strong>
+                            <code>Mã: ...<br>Họ tên: ...<br>Khoa: ...<br>Email: ...<br>Lý do: ...</code>
+                        </div>
+                        <label for="forced-contact-message">Thông tin cần hỗ trợ</label>
+                        <textarea id="forced-contact-message" maxlength="800" rows="7" spellcheck="false" required></textarea>
+                        <p id="forced-contact-status" role="status"></p>
+                        <div>
+                            <button type="button" id="cancel-forced-contact">Hủy</button>
+                            <button type="submit" id="send-forced-contact">Gửi yêu cầu</button>
+                        </div>
                     </form>
                 </section>
 
@@ -225,6 +242,6 @@
         </div>
 
         <script src="/static/js/login-ui.js" defer></script>
-        <script type="module" src="/static/js/login-firebase.js?v=9"></script>
+        <script type="module" src="/static/js/login-firebase.js?v=10"></script>
     </body>
 </html>

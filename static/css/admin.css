@@ -1370,6 +1370,7 @@ button {
 
 .action-group {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
 }
 
@@ -1409,6 +1410,70 @@ button {
     color: #ffffff;
     background-color: #dc2626;
     border-color: #dc2626;
+}
+
+.password-action {
+    color: #6d28d9;
+    border: 1px solid #c4b5fd;
+}
+
+.password-action:hover {
+    color: #ffffff;
+    background-color: #7c3aed;
+    border-color: #7c3aed;
+}
+
+.temporary-password-card {
+    max-width: 650px;
+}
+
+.temporary-password-account {
+    margin-bottom: 20px;
+    padding: 13px 15px;
+    color: #334155;
+    background: #f1f5f9;
+    border-radius: 11px;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+.temporary-password-grid {
+    grid-template-columns: 1fr;
+}
+
+.temporary-password-grid small {
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.temporary-password-tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.temporary-password-tools button {
+    padding: 8px 11px;
+    color: #5b21b6;
+    background: #f5f3ff;
+    border: 1px solid #ddd6fe;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.temporary-password-tools button:hover {
+    background: #ede9fe;
+    border-color: #c4b5fd;
+}
+
+#temporary-password-message.success {
+    color: #047857;
 }
 
 .modal-overlay {

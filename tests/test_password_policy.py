@@ -123,6 +123,67 @@ class PasswordPolicyTest(unittest.TestCase):
         self.assertTrue(response.get_json()["expired"])
         self.assertEqual(response.get_json()["remainingSeconds"], 0)
 
+    def test_temporary_password_flag_forces_password_change(self):
+        now = datetime(2026, 8, 13, 12, 0, tzinfo=timezone.utc)
+        database = FakeDatabase({
+            "system_settings": {"password_policy": {"maxAgeSeconds": 86400, "historyCount": 5}},
+            "users": {"student-uid": {
+                "passwordChangedAt": now,
+                "mustChangePassword": True,
+            }},
+            "notifications": {},
+        })
+        with (
+            patch("password_policy_api._current_identity", return_value={
+                "uid": "student-uid", "email": "student@example.com", "role": "sinhvien"
+            }),
+            patch("password_policy_api.firestore.client", return_value=database),
+            patch("password_policy_api._utc_now", return_value=now),
+        ):
+            response = app.test_client().get("/api/password-policy/status")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.get_json()["expired"])
+        self.assertTrue(response.get_json()["mustChangePassword"])
+
+    def test_admin_can_issue_temporary_password_to_student(self):
+        class FakeAuth:
+            def __init__(self):
+                self.updated = []
+                self.revoked = []
+
+            def update_user(self, uid, password):
+                self.updated.append((uid, password))
+
+            def revoke_refresh_tokens(self, uid):
+                self.revoked.append(uid)
+
+        now = datetime(2026, 8, 13, 12, 0, tzinfo=timezone.utc)
+        database = FakeDatabase({
+            "system_settings": {"password_policy": {"maxAgeSeconds": 86400, "historyCount": 5}},
+            "users": {"student-uid": {
+                "email": "student@example.com",
+                "role": "sinhvien",
+                "passwordHistory": [],
+            }},
+        })
+        auth = FakeAuth()
+        with (
+            patch("password_policy_api._admin_identity", return_value={"uid": "admin-uid"}),
+            patch("password_policy_api.firestore.client", return_value=database),
+            patch("password_policy_api.get_firebase_auth", return_value=auth),
+            patch("password_policy_api._utc_now", return_value=now),
+        ):
+            response = app.test_client().post(
+                "/api/admin/accounts/student-uid/temporary-password",
+                json={"temporaryPassword": "StrongTemp@2026"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(database.data["users"]["student-uid"]["mustChangePassword"])
+        self.assertEqual(auth.updated, [("student-uid", "StrongTemp@2026")])
+        self.assertEqual(auth.revoked, ["student-uid"])
+
     def test_warning_creates_bell_notification_once(self):
         now = datetime(2026, 8, 13, 12, 0, tzinfo=timezone.utc)
         database = FakeDatabase({
