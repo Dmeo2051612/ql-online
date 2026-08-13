@@ -17,6 +17,7 @@ from password_security import hash_password
 
 notification_api_bp = Blueprint("notification_api", __name__)
 _identity_cache = {}
+PASSWORD_EXPIRY_GRACE_SECONDS = 30 * 60
 
 
 def _current_identity():
@@ -715,6 +716,66 @@ def _serialize_unlock_request(snapshot):
         "validationScore": validation_score,
         "validationTotal": len(validation_details) or 4,
         "validationDetails": validation_details,
+        "requestType": str(data.get("requestType") or "login_lockout"),
+        "accessGranted": bool(data.get("accessGranted")),
+    }
+
+
+def _apply_unlock_approval_effect(database, reference, data):
+    """Apply an approved request once and return its effective access state."""
+    if str(data.get("status") or "pending").lower() != "approved":
+        return {
+            "accessGranted": False,
+            "graceUntilMillis": _timestamp_millis(data.get("graceUntil")),
+        }
+
+    if data.get("approvalEffectApplied"):
+        stored_grace_until = data.get("graceUntil")
+        grace_is_active = bool(
+            isinstance(stored_grace_until, datetime)
+            and datetime.now(timezone.utc) < stored_grace_until
+        )
+        return {
+            "accessGranted": bool(data.get("accessGranted") and grace_is_active),
+            "graceUntilMillis": _timestamp_millis(stored_grace_until),
+        }
+
+    email = str(data.get("email") or "").strip().lower()
+    access_granted = False
+    grace_until = None
+    target_uid = ""
+    try:
+        auth_user = get_firebase_auth().get_user_by_email(email)
+        target_uid = str(auth_user.uid or "")
+        profile_ref = database.collection("users").document(target_uid)
+        profile_snapshot = profile_ref.get()
+        profile = profile_snapshot.to_dict() or {} if profile_snapshot.exists else {}
+        # A temporary password must always be changed and cannot be bypassed by approval.
+        access_granted = bool(profile_snapshot.exists and not profile.get("mustChangePassword"))
+        if access_granted:
+            now = datetime.now(timezone.utc)
+            grace_until = now + timedelta(seconds=PASSWORD_EXPIRY_GRACE_SECONDS)
+            profile_ref.set({
+                "passwordExpiryGraceUntil": grace_until,
+                "passwordExpiryGraceApprovedAt": now,
+                "passwordExpiryGraceApprovedBy": str(data.get("decidedBy") or ""),
+            }, merge=True)
+            _identity_cache.pop(target_uid, None)
+    except Exception:
+        # Leave the effect unapplied so a transient Firebase/Firestore failure can retry.
+        return {"accessGranted": False, "graceUntilMillis": 0}
+
+    request_update = {
+        "approvalEffectApplied": True,
+        "accessGranted": access_granted,
+        "approvalEffectAppliedAt": datetime.now(timezone.utc),
+    }
+    if grace_until:
+        request_update["graceUntil"] = grace_until
+    reference.update(request_update)
+    return {
+        "accessGranted": access_granted,
+        "graceUntilMillis": _timestamp_millis(grace_until),
     }
 
 
@@ -723,6 +784,9 @@ def create_login_unlock_request():
     payload = request.get_json(silent=True) or {}
     email = str(payload.get("email") or "").strip().lower()
     message = str(payload.get("message") or "").strip()
+    request_type = str(payload.get("requestType") or "login_lockout").strip().lower()
+    if request_type not in {"login_lockout", "password_expired"}:
+        request_type = "login_lockout"
     if not email or "@" not in email or len(email) > 254:
         return jsonify(error="Email không hợp lệ."), 400
     if len(message) > 800:
@@ -744,6 +808,7 @@ def create_login_unlock_request():
     document.set({
         "email": email,
         "message": message,
+        "requestType": request_type,
         "status": "pending",
         "validationScore": analysis["score"],
         "validationTotal": analysis["total"],
@@ -774,11 +839,45 @@ def create_login_unlock_request():
 
 @notification_api_bp.get("/api/login-unlock-requests/<request_id>/status")
 def login_unlock_request_status(request_id):
-    snapshot = firestore.client().collection("login_unlock_requests").document(request_id).get()
+    database = firestore.client()
+    reference = database.collection("login_unlock_requests").document(request_id)
+    snapshot = reference.get()
     if not snapshot.exists:
         return jsonify(error="Yêu cầu không tồn tại."), 404
     data = snapshot.to_dict() or {}
-    return jsonify(status=str(data.get("status") or "pending")), 200
+    effect = _apply_unlock_approval_effect(database, reference, data)
+    return jsonify(
+        status=str(data.get("status") or "pending"),
+        **effect,
+    ), 200
+
+
+@notification_api_bp.post("/api/login-unlock-requests/latest-status")
+def latest_login_unlock_request_status():
+    payload = request.get_json(silent=True) or {}
+    email = str(payload.get("email") or "").strip().lower()
+    if not email or "@" not in email or len(email) > 254:
+        return jsonify(error="Email không hợp lệ."), 400
+
+    database = firestore.client()
+    matching = []
+    for snapshot in database.collection("login_unlock_requests").stream():
+        data = snapshot.to_dict() or {}
+        if str(data.get("email") or "").strip().lower() == email:
+            matching.append((snapshot, data))
+    if not matching:
+        return jsonify(status="none"), 200
+
+    snapshot, data = max(
+        matching,
+        key=lambda item: (_timestamp_millis(item[1].get("createdAt")), item[0].id),
+    )
+    effect = _apply_unlock_approval_effect(database, snapshot.reference, data)
+    return jsonify(
+        id=snapshot.id,
+        status=str(data.get("status") or "pending"),
+        **effect,
+    ), 200
 
 
 @notification_api_bp.get("/api/admin/login-unlock-requests")
@@ -860,12 +959,19 @@ def decide_login_unlock_request(request_id):
     if str(current.get("status") or "pending") != "pending":
         return jsonify(error="Yêu cầu này đã được xử lý."), 409
 
+    decided_at = datetime.now(timezone.utc)
     reference.update({
         "status": status,
-        "decidedAt": firestore.SERVER_TIMESTAMP,
+        "decidedAt": decided_at,
         "decidedBy": admin["uid"],
     })
-    return jsonify(success=True, status=status), 200
+    effect = _apply_unlock_approval_effect(database, reference, {
+        **current,
+        "status": status,
+        "decidedAt": decided_at,
+        "decidedBy": admin["uid"],
+    })
+    return jsonify(success=True, status=status, **effect), 200
 
 
 def _serialize_notification(snapshot):

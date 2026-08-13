@@ -146,6 +146,55 @@ class PasswordPolicyTest(unittest.TestCase):
         self.assertTrue(response.get_json()["expired"])
         self.assertTrue(response.get_json()["mustChangePassword"])
 
+    def test_approved_grace_temporarily_allows_expired_password(self):
+        now = datetime(2026, 8, 13, 12, 0, tzinfo=timezone.utc)
+        database = FakeDatabase({
+            "system_settings": {"password_policy": {"maxAgeSeconds": 30, "historyCount": 5}},
+            "users": {"student-uid": {
+                "passwordChangedAt": now - timedelta(seconds=31),
+                "passwordExpiryGraceUntil": now + timedelta(minutes=30),
+            }},
+            "notifications": {},
+        })
+        with (
+            patch("password_policy_api._current_identity", return_value={
+                "uid": "student-uid", "email": "student@example.com", "role": "sinhvien"
+            }),
+            patch("password_policy_api.firestore.client", return_value=database),
+            patch("password_policy_api._utc_now", return_value=now),
+        ):
+            response = app.test_client().get("/api/password-policy/status")
+
+        data = response.get_json()
+        self.assertFalse(data["expired"])
+        self.assertTrue(data["ageExpired"])
+        self.assertTrue(data["graceActive"])
+        self.assertEqual(data["remainingSeconds"], 1800)
+
+    def test_temporary_password_cannot_use_approved_grace(self):
+        now = datetime(2026, 8, 13, 12, 0, tzinfo=timezone.utc)
+        database = FakeDatabase({
+            "system_settings": {"password_policy": {"maxAgeSeconds": 30, "historyCount": 5}},
+            "users": {"student-uid": {
+                "passwordChangedAt": now,
+                "mustChangePassword": True,
+                "passwordExpiryGraceUntil": now + timedelta(minutes=30),
+            }},
+            "notifications": {},
+        })
+        with (
+            patch("password_policy_api._current_identity", return_value={
+                "uid": "student-uid", "email": "student@example.com", "role": "sinhvien"
+            }),
+            patch("password_policy_api.firestore.client", return_value=database),
+            patch("password_policy_api._utc_now", return_value=now),
+        ):
+            response = app.test_client().get("/api/password-policy/status")
+
+        data = response.get_json()
+        self.assertTrue(data["expired"])
+        self.assertFalse(data["graceActive"])
+
     def test_admin_can_issue_temporary_password_to_student(self):
         class FakeAuth:
             def __init__(self):

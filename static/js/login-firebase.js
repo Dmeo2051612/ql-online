@@ -59,6 +59,7 @@ const sendForcedContact = document.getElementById("send-forced-contact");
 const KHOA_DANG_NHAP_KEY = "ql-online-login-lockout-v1";
 const YEU_CAU_MO_KHOA_KEY = "ql-online-unlock-request-v1";
 const EMAIL_MAT_KHAU_HET_HAN_KEY = "ql-online-expired-password-email";
+const YEU_CAU_HO_TRO_MAT_KHAU_KEY = "ql-online-password-support-request-v1";
 const SO_LAN_SAI_TOI_DA = 5;
 const CUA_SO_THU_DANG_NHAP = 10 * 60 * 1000;
 const THOI_GIAN_KHOA = 15 * 60 * 1000;
@@ -66,6 +67,7 @@ const THOI_GIAN_KHOA = 15 * 60 * 1000;
 let dangXuLyDangNhap = false;
 let boDemKhoaDangNhap = null;
 let boDemKiemTraMoKhoa = null;
+let boDemKiemTraHoTroMatKhau = null;
 let resetStep = "request";
 let passwordResetRequestId = "";
 let passwordResetToken = "";
@@ -368,6 +370,96 @@ function hienThiBuocDoiMatKhauBatBuoc(email) {
     forcedPasswordPanel.classList.remove("hidden");
     document.querySelector(".login-card > h1").textContent = "Xác thực bảo mật";
     forcedCurrentPassword.focus();
+    kiemTraYeuCauHoTroMatKhauHetHan();
+}
+
+
+function docYeuCauHoTroMatKhau() {
+    try {
+        return JSON.parse(window.sessionStorage.getItem(YEU_CAU_HO_TRO_MAT_KHAU_KEY) || "{}");
+    } catch (_) {
+        return {};
+    }
+}
+
+
+function luuYeuCauHoTroMatKhau(duLieu) {
+    if (duLieu?.id && duLieu?.email) {
+        window.sessionStorage.setItem(YEU_CAU_HO_TRO_MAT_KHAU_KEY, JSON.stringify(duLieu));
+    } else {
+        window.sessionStorage.removeItem(YEU_CAU_HO_TRO_MAT_KHAU_KEY);
+    }
+}
+
+
+function moLaiDangNhapSauKhiAdminDuyet(email, graceUntilMillis = 0) {
+    window.clearTimeout(boDemKiemTraHoTroMatKhau);
+    boDemKiemTraHoTroMatKhau = null;
+    luuYeuCauHoTroMatKhau({});
+    window.sessionStorage.removeItem(EMAIL_MAT_KHAU_HET_HAN_KEY);
+    forcedPasswordPanel.classList.add("hidden");
+    forcedContactForm.classList.add("hidden");
+    loginForm.classList.remove("login-form-hidden");
+    document.querySelector(".login-card > h1").textContent = "Đăng nhập";
+    emailInput.value = chuanHoaEmail(email);
+    passwordInput.value = "";
+    loginError.classList.add("login-success");
+    const minutes = graceUntilMillis
+        ? Math.max(1, Math.ceil((Number(graceUntilMillis) - Date.now()) / 60000))
+        : 30;
+    loginError.textContent = `Nhà trường đã chấp nhận. Bạn có ${minutes} phút để đăng nhập và đổi mật khẩu.`;
+    window.history.replaceState({}, "", "/");
+    passwordInput.focus();
+}
+
+
+async function kiemTraYeuCauHoTroMatKhauHetHan() {
+    const email = chuanHoaEmail(forcedPasswordEmail);
+    if (!email || forcedPasswordPanel.classList.contains("hidden")) return;
+
+    const stored = docYeuCauHoTroMatKhau();
+    try {
+        let response;
+        if (stored.id && chuanHoaEmail(stored.email) === email) {
+            response = await fetch(`/api/login-unlock-requests/${encodeURIComponent(stored.id)}/status`, {
+                cache: "no-store"
+            });
+        } else {
+            response = await fetch("/api/login-unlock-requests/latest-status", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                cache: "no-store",
+                body: JSON.stringify({ email })
+            });
+        }
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Không thể kiểm tra yêu cầu.");
+        if (data.id) luuYeuCauHoTroMatKhau({ id: data.id, email });
+
+        if (data.status === "approved" && data.accessGranted) {
+            moLaiDangNhapSauKhiAdminDuyet(email, data.graceUntilMillis);
+            return;
+        }
+        if (data.status === "approved") {
+            forcedContactStatus.textContent = "Nhà trường đã duyệt, nhưng tài khoản dùng mật khẩu tạm vẫn phải đổi mật khẩu hoặc dùng Quên mật khẩu.";
+            return;
+        }
+        if (data.status === "rejected") {
+            forcedContactStatus.textContent = "Nhà trường đã từ chối yêu cầu hỗ trợ này.";
+            return;
+        }
+        if (data.status === "pending") {
+            forcedContactStatus.textContent = "Đã gửi yêu cầu. Tài khoản vẫn bị khóa trong khi chờ admin xử lý.";
+            forcedContactMessage.readOnly = true;
+            forcedContactForm.classList.remove("hidden");
+            boDemKiemTraHoTroMatKhau = window.setTimeout(() => {
+                boDemKiemTraHoTroMatKhau = null;
+                kiemTraYeuCauHoTroMatKhauHetHan();
+            }, 3000);
+        }
+    } catch (error) {
+        console.warn("Không thể kiểm tra hỗ trợ mật khẩu:", error);
+    }
 }
 
 
@@ -415,7 +507,8 @@ forcedContactForm?.addEventListener("submit", async function (event) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 email: forcedPasswordEmail,
-                message: forcedContactMessage.value.trim()
+                message: forcedContactMessage.value.trim(),
+                requestType: "password_expired"
             })
         });
         const data = await response.json().catch(() => ({}));
@@ -423,7 +516,9 @@ forcedContactForm?.addEventListener("submit", async function (event) {
         forcedContactStatus.textContent = data.alreadySent
             ? "Yêu cầu hỗ trợ của tài khoản này đang chờ nhà trường xử lý."
             : "Đã gửi yêu cầu tới nhà trường. Tài khoản vẫn bị khóa cho tới khi mật khẩu được đổi.";
+        luuYeuCauHoTroMatKhau({ id: data.id, email: forcedPasswordEmail });
         forcedContactMessage.readOnly = true;
+        kiemTraYeuCauHoTroMatKhauHetHan();
     } catch (error) {
         forcedContactStatus.textContent = error.message || "Không thể gửi yêu cầu.";
     } finally {
@@ -442,6 +537,7 @@ function quayLaiDangNhapSauKhiDoiMatKhau() {
     loginError.classList.add("login-success");
     loginError.textContent = "Đổi mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới.";
     window.sessionStorage.removeItem(EMAIL_MAT_KHAU_HET_HAN_KEY);
+    luuYeuCauHoTroMatKhau({});
     passwordInput.focus();
 }
 
@@ -783,6 +879,7 @@ async function completeResetPassword() {
     passwordResetToken = "";
     returnToForcedPassword = false;
     window.sessionStorage.removeItem(EMAIL_MAT_KHAU_HET_HAN_KEY);
+    luuYeuCauHoTroMatKhau({});
     window.history.replaceState({}, "", "/");
     setResetStep("done");
     resetMessage.className = "message-success";

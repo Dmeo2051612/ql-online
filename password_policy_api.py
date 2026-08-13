@@ -134,6 +134,8 @@ def password_policy_status():
             expired=False,
             exempt=True,
             mustChangePassword=False,
+            graceActive=False,
+            ageExpired=False,
         ), 200
 
     database = firestore.client()
@@ -144,18 +146,29 @@ def password_policy_status():
     profile = profile_snapshot.to_dict() or {} if profile_snapshot.exists else {}
     now = _utc_now()
     must_change_password = bool(profile.get("mustChangePassword"))
+    grace_until = profile.get("passwordExpiryGraceUntil")
     changed_at = profile.get("passwordChangedAt")
     if not isinstance(changed_at, datetime):
         changed_at = now
         profile_ref.set({"passwordChangedAt": changed_at}, merge=True)
 
     expires_at = changed_at + timedelta(seconds=max_age_seconds) if max_age_seconds else None
-    remaining_seconds = max(0, int((expires_at - now).total_seconds())) if expires_at else 0
-    expired = must_change_password or bool(expires_at and now >= expires_at)
-    warning = bool(expires_at and not expired and remaining_seconds <= 3600)
+    age_expired = bool(expires_at and now >= expires_at)
+    grace_active = bool(
+        isinstance(grace_until, datetime)
+        and now < grace_until
+        and not must_change_password
+    )
+    effective_expires_at = grace_until if age_expired and grace_active else expires_at
+    remaining_seconds = (
+        max(0, int((effective_expires_at - now).total_seconds()))
+        if effective_expires_at else 0
+    )
+    expired = must_change_password or (age_expired and not grace_active)
+    warning = bool(effective_expires_at and not expired and remaining_seconds <= 3600)
 
     if warning:
-        warning_key = str(int(expires_at.timestamp()))
+        warning_key = str(int(effective_expires_at.timestamp()))
         if str(profile.get("passwordExpiryWarningKey") or "") != warning_key:
             database.collection("notifications").document().set({
                 "title": "Mật khẩu sắp hết hạn",
@@ -175,11 +188,13 @@ def password_policy_status():
         maxAgeSeconds=max_age_seconds,
         historyCount=policy["historyCount"],
         passwordChangedAtMillis=_timestamp_millis(changed_at),
-        expiresAtMillis=_timestamp_millis(expires_at),
+        expiresAtMillis=_timestamp_millis(effective_expires_at),
         remainingSeconds=remaining_seconds,
         warning=warning,
         expired=expired,
         mustChangePassword=must_change_password,
+        graceActive=grace_active,
+        ageExpired=age_expired,
     ), 200
 
 
@@ -241,6 +256,9 @@ def set_temporary_password(uid):
             policy["historyCount"],
         ),
         "passwordExpiryWarningKey": firestore.DELETE_FIELD,
+        "passwordExpiryGraceUntil": firestore.DELETE_FIELD,
+        "passwordExpiryGraceApprovedAt": firestore.DELETE_FIELD,
+        "passwordExpiryGraceApprovedBy": firestore.DELETE_FIELD,
     }, merge=True)
     _identity_cache.pop(target_uid, None)
     return jsonify(success=True, mustChangePassword=True), 200
@@ -302,6 +320,9 @@ def change_password_with_policy():
         "mustChangePassword": False,
         "temporaryPasswordIssuedAt": firestore.DELETE_FIELD,
         "temporaryPasswordIssuedBy": firestore.DELETE_FIELD,
+        "passwordExpiryGraceUntil": firestore.DELETE_FIELD,
+        "passwordExpiryGraceApprovedAt": firestore.DELETE_FIELD,
+        "passwordExpiryGraceApprovedBy": firestore.DELETE_FIELD,
     }, merge=True)
     _identity_cache.pop(identity["uid"], None)
     return jsonify(success=True), 200
