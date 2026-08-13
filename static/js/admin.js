@@ -807,88 +807,21 @@ async function guiYeuCauThemSinhVien(duLieu) {
     saveButton.textContent = "Đang lưu...";
 
     try {
-        const {
-            secondaryAuth,
-            db
-        } = await import(
-            "/static/js/firebase-config.js"
-        );
-
-        const {
-            createUserWithEmailAndPassword,
-            signOut
-        } = await import(
-            "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js"
-        );
-
-        const {
-            doc,
-            getDoc,
-            setDoc
-        } = await import(
-            "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js"
-        );
-
-        // 1. Kiểm tra mã sinh viên
-        const thamChieuSinhVien = doc(
-            db,
-            "sinhvien",
-            duLieu.masv
-        );
-
-        const sinhVienCu =
-            await getDoc(thamChieuSinhVien);
-
-        if (sinhVienCu.exists()) {
-            throw new Error(
-                "Mã sinh viên đã tồn tại."
-            );
-        }
-
-        // 2. Tạo tài khoản đăng nhập Firebase
-        const taiKhoanSinhVien =
-            await createUserWithEmailAndPassword(
-                secondaryAuth,
-                duLieu.mail,
-                duLieu.matkhau
-            );
-
-        const uidSinhVien =
-            taiKhoanSinhVien.user.uid;
-
-        // 3. Tạo thông tin phân quyền
-        await setDoc(
-            doc(db, "users", uidSinhVien),
-            {
-                email: duLieu.mail,
-                role: "sinhvien",
-                masv: duLieu.masv
-            }
-        );
-
-        // 4. Tạo hồ sơ sinh viên
-        await setDoc(
-            thamChieuSinhVien,
-            {
-                uid: uidSinhVien,
-                mail: duLieu.mail,
-                hoten: duLieu.hoten,
-                ngaysinh: duLieu.ngaysinh,
-                makhoa: duLieu.makhoa,
-                namnhaphoc: Number(
-                    duLieu.namnhaphoc
-                )
-            }
-        );
-
-        // 5. Đăng xuất tài khoản phụ
-        await signOut(secondaryAuth);
+        const ketQua = await goiApiYeuCau("/api/admin/students", {
+            method: "POST",
+            body: JSON.stringify(duLieu)
+        });
 
         dongFormSinhVien();
 
         await taiDanhSachSinhVien();
 
-        hienThiThongBao("Thêm sinh viên thành công.", "success");
+        hienThiThongBao(
+            ketQua.linkedExistingAccount
+                ? "Đã bổ sung hồ sơ và phân quyền cho tài khoản hiện có."
+                : "Thêm sinh viên thành công.",
+            "success"
+        );
 
     } catch (loi) {
         formMessage.textContent = loi.message;

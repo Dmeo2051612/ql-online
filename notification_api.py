@@ -59,6 +59,102 @@ def _admin_identity():
     return identity if identity and identity["role"] == "admin" else None
 
 
+@notification_api_bp.post("/api/admin/students")
+def create_or_link_student():
+    """Create a student or complete an orphaned Firebase Auth account."""
+    try:
+        admin = _admin_identity()
+    except Exception:
+        return jsonify(error="Phiên đăng nhập không hợp lệ."), 401
+    if not admin:
+        return jsonify(error="Chỉ quản trị viên được thêm sinh viên."), 403
+
+    payload = request.get_json(silent=True) or {}
+    student_id = str(payload.get("masv") or "").strip()
+    full_name = str(payload.get("hoten") or "").strip()
+    email = str(payload.get("mail") or "").strip().lower()
+    password = str(payload.get("matkhau") or "")
+    birthday = str(payload.get("ngaysinh") or "").strip()
+    department_id = str(payload.get("makhoa") or "").strip()
+    enrollment_year = str(payload.get("namnhaphoc") or "").strip()
+
+    if not all((student_id, full_name, email, password, birthday, department_id, enrollment_year)):
+        return jsonify(error="Vui lòng nhập đầy đủ thông tin sinh viên."), 400
+    if "@" not in email or len(email) > 254:
+        return jsonify(error="Email không hợp lệ."), 400
+    try:
+        enrollment_year_number = int(enrollment_year)
+    except ValueError:
+        return jsonify(error="Năm nhập học không hợp lệ."), 400
+
+    database = firestore.client()
+    student_ref = database.collection("sinhvien").document(student_id)
+    if student_ref.get().exists:
+        return jsonify(error="Mã sinh viên đã tồn tại."), 409
+
+    # Do not let one email point to two student records.
+    for snapshot in database.collection("sinhvien").stream():
+        current = snapshot.to_dict() or {}
+        if str(current.get("mail") or "").strip().lower() == email:
+            return jsonify(error="Email đã được gắn với một sinh viên khác."), 409
+
+    auth_api = get_firebase_auth()
+    created_auth_user = False
+    user = None
+    try:
+        try:
+            user = auth_api.get_user_by_email(email)
+            linked_existing_account = True
+        except auth_api.UserNotFoundError:
+            user = auth_api.create_user(email=email, password=password)
+            created_auth_user = True
+            linked_existing_account = False
+
+        user_ref = database.collection("users").document(user.uid)
+        existing_profile = user_ref.get()
+        if existing_profile.exists:
+            profile = existing_profile.to_dict() or {}
+            existing_role = str(profile.get("role") or "").strip().lower()
+            existing_student_id = str(profile.get("masv") or "").strip()
+            if existing_role not in {"", "sinhvien"}:
+                return jsonify(error="Email này đã thuộc một loại tài khoản khác."), 409
+            if existing_student_id and existing_student_id != student_id:
+                return jsonify(error="Email này đã được phân quyền cho sinh viên khác."), 409
+
+        batch = database.batch()
+        batch.set(user_ref, {
+            "email": email,
+            "role": "sinhvien",
+            "masv": student_id,
+            "hoten": full_name,
+        }, merge=True)
+        batch.set(student_ref, {
+            "uid": user.uid,
+            "mail": email,
+            "hoten": full_name,
+            "ngaysinh": birthday,
+            "makhoa": department_id,
+            "namnhaphoc": enrollment_year_number,
+        })
+        batch.commit()
+        _identity_cache.pop(user.uid, None)
+    except Exception as exc:
+        if created_auth_user and user is not None:
+            try:
+                auth_api.delete_user(user.uid)
+            except Exception:
+                pass
+        if isinstance(exc, getattr(auth_api, "EmailAlreadyExistsError", ())):
+            return jsonify(error="Email vừa được tạo ở thao tác khác. Vui lòng thử lại."), 409
+        return jsonify(error=f"Không thể lưu tài khoản sinh viên: {exc}"), 500
+
+    return jsonify(
+        success=True,
+        uid=user.uid,
+        linkedExistingAccount=linked_existing_account,
+    ), 201
+
+
 LOCAL_TIMEZONE = timezone(timedelta(hours=7), name="Asia/Ho_Chi_Minh")
 
 
