@@ -3085,14 +3085,6 @@ document.getElementById("ai-chat-close")?.addEventListener("click", () => {
 
 function layVungDiChuyenRobot() {
     const noiDungChinh = document.querySelector(".main-content");
-    const sectionDangMo = document.querySelector(".student-section:not(.hidden-section)");
-    const khungRobot = aiChatToggle?.getBoundingClientRect();
-    const khungSection = sectionDangMo?.getBoundingClientRect();
-    if (khungSection && khungRobot
-        && khungSection.width >= khungRobot.width + 24
-        && Math.min(khungSection.bottom, window.innerHeight) - Math.max(khungSection.top, 0) >= khungRobot.height + 24) {
-        return khungSection;
-    }
     return noiDungChinh?.getBoundingClientRect() || {
         left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight
     };
@@ -3118,6 +3110,24 @@ function datLaiViTriRobot() {
     aiChatToggle?.style.removeProperty("top");
     aiChatToggle?.style.removeProperty("right");
     aiChatToggle?.style.removeProperty("bottom");
+}
+
+function giuRobotTrongVungNoiDung() {
+    if (!aiChatToggle?.style.left || window.innerWidth <= 760) return;
+    const khung = aiChatToggle.getBoundingClientRect();
+    datViTriRobotTrongPhamVi(khung.left, khung.top);
+}
+
+let aiDangChoCanhRobot = false;
+function lenLichGiuRobotTrongVung() {
+    if (aiDangChoCanhRobot) return;
+    aiDangChoCanhRobot = true;
+    const thucHien = () => {
+        aiDangChoCanhRobot = false;
+        giuRobotTrongVungNoiDung();
+    };
+    if (typeof window.requestAnimationFrame === "function") window.requestAnimationFrame(thucHien);
+    else window.setTimeout(thucHien, 0);
 }
 
 aiChatToggle?.addEventListener("dblclick", (suKien) => {
@@ -3164,18 +3174,12 @@ window.addEventListener("resize", () => {
         datLaiViTriRobot();
         return;
     }
-    if (aiChatToggle && aiChatToggle.style.left) {
-        const khung = aiChatToggle.getBoundingClientRect();
-        datViTriRobotTrongPhamVi(khung.left, khung.top);
-    }
+    giuRobotTrongVungNoiDung();
 });
 window.addEventListener("hashchange", () => {
-    window.setTimeout(() => {
-        if (!aiChatToggle?.style.left) return;
-        const khung = aiChatToggle.getBoundingClientRect();
-        datViTriRobotTrongPhamVi(khung.left, khung.top);
-    }, 0);
+    window.setTimeout(giuRobotTrongVungNoiDung, 0);
 });
+window.addEventListener("scroll", lenLichGiuRobotTrongVung, { passive: true });
 
 aiChatForm?.addEventListener("submit", (suKien) => { suKien.preventDefault(); xuLyCauHoiAI(aiChatInput.value); });
 document.querySelectorAll("[data-ai-question]").forEach((nut) => nut.addEventListener("click", () => xuLyCauHoiAI(nut.dataset.aiQuestion)));

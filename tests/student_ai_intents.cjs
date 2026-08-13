@@ -21,6 +21,7 @@ function fakeElement() {
 }
 
 const fakeElements = new Map();
+const windowListeners = {};
 
 const context = {
     console, Date, Math, Map, Set, Promise, Blob, URL,
@@ -32,8 +33,11 @@ const context = {
         },
         addEventListener() {},
         querySelector(selector) {
-            if (selector === ".main-content" || selector === ".student-section:not(.hidden-section)") {
+            if (selector === ".main-content") {
                 return { getBoundingClientRect() { return { left: 325, top: 0, right: 1440, bottom: 900, width: 1115, height: 900 }; } };
+            }
+            if (selector === ".student-section:not(.hidden-section)") {
+                return { getBoundingClientRect() { return { left: 451, top: 490, right: 1380, bottom: 1200, width: 929, height: 710 }; } };
             }
             return null;
         },
@@ -49,7 +53,9 @@ const context = {
         }
     },
     window: {
-        addEventListener() {}, setTimeout, innerWidth: 1440, innerHeight: 900,
+        addEventListener(type, handler) { (windowListeners[type] ||= []).push(handler); },
+        dispatchEvent(event) { (windowListeners[event.type] || []).forEach((handler) => handler(event)); },
+        setTimeout, requestAnimationFrame(callback) { callback(); }, innerWidth: 1440, innerHeight: 900,
         location: { hash: "" }, history: { replaceState() {} }
     },
     alert() {}, confirm() { return true; }
@@ -205,6 +211,10 @@ aiChatToggle.dispatchEvent({ type: "pointerup", pointerId: 1, target: mucTieuKeo
 if (aiChatToggle.style.left !== "664px" || aiChatToggle.style.top !== "270px") throw new Error("Giữ chuột chưa kéo được nhân vật robot");
 aiChatToggle.dispatchEvent({ type: "click", target: mucTieuKeo, preventDefault() {} });
 if (!aiChatbox.hidden) throw new Error("Thả robot sau khi kéo đã vô tình mở chatbot");
+if (layVungDiChuyenRobot().left !== 325) throw new Error("Robot vẫn bị giới hạn theo thẻ section thay vì toàn bộ vùng nội dung trắng");
+aiChatToggle.style.left = "100px"; aiChatToggle.style.top = "50px";
+window.dispatchEvent({ type: "scroll" });
+if (aiChatToggle.style.left !== "337px") throw new Error("Cuộn trang chưa giữ robot ngoài vùng sidebar");
 aiChatToggle.dispatchEvent({ type: "dblclick", target: mucTieuKeo, preventDefault() {} });
 if (aiChatToggle.style.left || aiChatToggle.style.top) throw new Error("Nháy đúp chưa đưa robot về vị trí mặc định");
 
