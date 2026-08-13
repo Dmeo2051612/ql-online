@@ -225,6 +225,48 @@ body {
     display: none;
 }
 
+.reset-confirm-fields {
+    animation: panel-in 0.2s ease-out;
+}
+
+.reset-field-hint {
+    display: block;
+    margin-top: 7px;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.otp-input {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 0.28em;
+    text-align: center;
+}
+
+.reset-resend-button {
+    display: block;
+    margin: -2px 0 12px auto;
+    padding: 4px 0;
+    color: #2563eb;
+    background: transparent;
+    border: 0;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.reset-resend-button:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
+}
+
+.reset-resend-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
 .forgot-password-panel h2 {
     margin-bottom: 6px;
     color: #1e3a8a;

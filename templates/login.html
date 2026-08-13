@@ -105,11 +105,11 @@
                 >
                     <h2 id="forgot-password-title">Đặt lại mật khẩu</h2>
                     <p>
-                        Firebase sẽ gửi liên kết đặt lại mật khẩu tới email đã đăng ký.
+                        Hệ thống sẽ gửi mã OTP gồm 6 chữ số tới email đã đăng ký.
                     </p>
 
                     <form id="forgot-password-form" novalidate>
-                        <div class="form-group">
+                        <div class="form-group" id="reset-request-fields">
                             <label for="reset-email">Email</label>
                             <input
                                 type="email"
@@ -119,6 +119,54 @@
                                 autocomplete="email"
                                 required
                             >
+                        </div>
+
+                        <div class="reset-confirm-fields hidden" id="reset-otp-fields">
+                            <div class="form-group">
+                                <label for="reset-otp">Mã OTP</label>
+                                <input
+                                    type="text"
+                                    id="reset-otp"
+                                    name="reset-otp"
+                                    class="otp-input"
+                                    placeholder="Nhập mã gồm 6 chữ số"
+                                    inputmode="numeric"
+                                    autocomplete="one-time-code"
+                                    pattern="[0-9]{6}"
+                                    minlength="6"
+                                    maxlength="6"
+                                >
+                                <small class="reset-field-hint">Mã OTP có hiệu lực trong 10 phút.</small>
+                            </div>
+                            <button type="button" class="reset-resend-button" id="resend-reset-code">
+                                Gửi lại mã OTP
+                            </button>
+                        </div>
+
+                        <div class="reset-confirm-fields hidden" id="reset-new-password-fields">
+                            <div class="form-group">
+                                <label for="reset-new-password">Mật khẩu mới</label>
+                                <input
+                                    type="password"
+                                    id="reset-new-password"
+                                    name="reset-new-password"
+                                    autocomplete="new-password"
+                                    minlength="12"
+                                    maxlength="128"
+                                >
+                                <small class="reset-field-hint">Ít nhất 12 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="reset-confirm-password">Nhập lại mật khẩu mới</label>
+                                <input
+                                    type="password"
+                                    id="reset-confirm-password"
+                                    name="reset-confirm-password"
+                                    autocomplete="new-password"
+                                    minlength="12"
+                                    maxlength="128"
+                                >
+                            </div>
                         </div>
 
                         <p id="reset-password-message" role="status"></p>
@@ -137,7 +185,7 @@
                                 class="forgot-submit-button"
                                 id="send-reset-email"
                             >
-                                <span id="reset-button-text">Gửi liên kết đặt lại</span>
+                                <span id="reset-button-text">Gửi mã OTP</span>
                                 <span class="btn-spinner hidden" id="reset-spinner"></span>
                             </button>
                         </div>
@@ -147,6 +195,6 @@
         </div>
 
         <script src="/static/js/login-ui.js" defer></script>
-        <script type="module" src="/static/js/login-firebase.js?v=7"></script>
+        <script type="module" src="/static/js/login-firebase.js?v=8"></script>
     </body>
 </html>
