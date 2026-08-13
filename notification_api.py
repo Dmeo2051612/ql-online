@@ -17,7 +17,7 @@ from password_security import hash_password
 
 notification_api_bp = Blueprint("notification_api", __name__)
 _identity_cache = {}
-PASSWORD_EXPIRY_GRACE_SECONDS = 30 * 60
+PASSWORD_EXPIRY_GRACE_SECONDS = 10 * 60
 
 
 def _current_identity():
@@ -731,6 +731,28 @@ def _apply_unlock_approval_effect(database, reference, data):
 
     if data.get("approvalEffectApplied"):
         stored_grace_until = data.get("graceUntil")
+        effect_applied_at = data.get("approvalEffectAppliedAt")
+        maximum_grace_until = (
+            effect_applied_at + timedelta(seconds=PASSWORD_EXPIRY_GRACE_SECONDS)
+            if isinstance(effect_applied_at, datetime) else stored_grace_until
+        )
+        if (
+            isinstance(stored_grace_until, datetime)
+            and isinstance(maximum_grace_until, datetime)
+            and stored_grace_until > maximum_grace_until
+        ):
+            stored_grace_until = maximum_grace_until
+            reference.update({"graceUntil": stored_grace_until})
+            try:
+                auth_user = get_firebase_auth().get_user_by_email(
+                    str(data.get("email") or "").strip().lower()
+                )
+                database.collection("users").document(auth_user.uid).set({
+                    "passwordExpiryGraceUntil": stored_grace_until,
+                }, merge=True)
+                _identity_cache.pop(auth_user.uid, None)
+            except Exception:
+                pass
         grace_is_active = bool(
             isinstance(stored_grace_until, datetime)
             and datetime.now(timezone.utc) < stored_grace_until

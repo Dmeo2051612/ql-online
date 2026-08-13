@@ -64,7 +64,7 @@ class FakeAuth:
 
 
 class UnlockApprovalTest(unittest.TestCase):
-    def test_approval_grants_30_minute_password_expiry_grace(self):
+    def test_approval_grants_10_minute_password_expiry_grace(self):
         database = FakeDatabase({
             "users": {"student-uid": {"role": "sinhvien", "mustChangePassword": False}},
             "login_unlock_requests": {"request-1": {}},
@@ -82,6 +82,10 @@ class UnlockApprovalTest(unittest.TestCase):
         request_data = database.data["login_unlock_requests"]["request-1"]
         self.assertTrue(result["accessGranted"])
         self.assertGreater(profile["passwordExpiryGraceUntil"], before)
+        self.assertLessEqual(
+            (profile["passwordExpiryGraceUntil"] - before).total_seconds(),
+            601,
+        )
         self.assertTrue(request_data["approvalEffectApplied"])
         self.assertTrue(request_data["accessGranted"])
 

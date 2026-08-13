@@ -406,7 +406,7 @@ function moLaiDangNhapSauKhiAdminDuyet(email, graceUntilMillis = 0) {
     loginError.classList.add("login-success");
     const minutes = graceUntilMillis
         ? Math.max(1, Math.ceil((Number(graceUntilMillis) - Date.now()) / 60000))
-        : 30;
+        : 10;
     loginError.textContent = `Nhà trường đã chấp nhận. Bạn có ${minutes} phút để đăng nhập và đổi mật khẩu.`;
     window.history.replaceState({}, "", "/");
     passwordInput.focus();

@@ -30,6 +30,7 @@ let noteReminderTimer = null;
 let passwordPolicyTimer = null;
 let passwordChangeRequired = false;
 let displayedPasswordWarning = "";
+let displayedGracePrompt = "";
 
 const NOTE_REMINDER_BEFORE_MINUTES = 30;
 const NOTE_REMINDER_AFTER_MINUTES = 60;
@@ -898,8 +899,24 @@ async function checkPasswordPolicy() {
             await logoutBecausePasswordExpired();
             return;
         }
+        if (status.graceActive) {
+            const remainingSeconds = Math.max(0, Number(status.remainingSeconds || 0));
+            const remainingMinutes = Math.max(1, Math.ceil(remainingSeconds / 60));
+            passwordChangeRequired = true;
+            const modal = document.getElementById("portal-password-modal");
+            modal.classList.add("portal-password-required");
+            document.getElementById("portal-password-title").textContent = "Yêu cầu đổi mật khẩu";
+            document.getElementById("portal-password-policy-note").textContent =
+                `Admin đã cấp quyền đăng nhập tạm. Bạn còn tối đa ${remainingMinutes} phút để đổi mật khẩu; hết hạn hệ thống sẽ tự đăng xuất.`;
+            openModal("portal-password-modal");
+            const graceKey = String(status.expiresAtMillis || "grace");
+            if (displayedGracePrompt !== graceKey) {
+                displayedGracePrompt = graceKey;
+                showToast("Quyền đăng nhập tạm chỉ có hiệu lực 10 phút. Hãy đổi mật khẩu ngay.", "warning");
+            }
+        }
         const warningKey = String(status.expiresAtMillis || "");
-        if (status.warning && displayedPasswordWarning !== warningKey) {
+        if (status.warning && !status.graceActive && displayedPasswordWarning !== warningKey) {
             displayedPasswordWarning = warningKey;
             showToast("Mật khẩu còn dưới 1 giờ hiệu lực. Hãy đổi mật khẩu sớm.", "warning");
         }

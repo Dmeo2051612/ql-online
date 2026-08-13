@@ -152,7 +152,7 @@ class PasswordPolicyTest(unittest.TestCase):
             "system_settings": {"password_policy": {"maxAgeSeconds": 30, "historyCount": 5}},
             "users": {"student-uid": {
                 "passwordChangedAt": now - timedelta(seconds=31),
-                "passwordExpiryGraceUntil": now + timedelta(minutes=30),
+                "passwordExpiryGraceUntil": now + timedelta(minutes=10),
             }},
             "notifications": {},
         })
@@ -169,7 +169,7 @@ class PasswordPolicyTest(unittest.TestCase):
         self.assertFalse(data["expired"])
         self.assertTrue(data["ageExpired"])
         self.assertTrue(data["graceActive"])
-        self.assertEqual(data["remainingSeconds"], 1800)
+        self.assertEqual(data["remainingSeconds"], 600)
 
     def test_temporary_password_cannot_use_approved_grace(self):
         now = datetime(2026, 8, 13, 12, 0, tzinfo=timezone.utc)
