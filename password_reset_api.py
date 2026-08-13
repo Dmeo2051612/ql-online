@@ -159,9 +159,25 @@ def _send_otp_with_brevo(email, otp, api_key):
             if response.status not in {200, 201, 202}:
                 raise RuntimeError("Dịch vụ email Brevo từ chối yêu cầu gửi OTP.")
     except urllib.error.HTTPError as exc:
-        raise RuntimeError(
-            "Brevo từ chối gửi OTP. Hãy kiểm tra API key và sender đã xác minh."
-        ) from exc
+        try:
+            error_payload = json.loads(exc.read().decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            error_payload = {}
+        brevo_code = str(error_payload.get("code") or "").strip().lower()
+        brevo_message = str(error_payload.get("message") or "").strip().lower()
+        if exc.code == 401 or brevo_code in {"unauthorized", "invalid_parameter"} and "api" in brevo_message:
+            message = "Brevo API key không hợp lệ. Hãy tạo key API v3 mới và cập nhật BREVO_API_KEY trên Render."
+        elif exc.code == 400 and any(word in brevo_message for word in ("sender", "from", "email")):
+            message = "Brevo chưa chấp nhận địa chỉ gửi. BREVO_SENDER_EMAIL phải đúng sender QL Online đã Verified."
+        elif exc.code == 402:
+            message = "Tài khoản Brevo đã hết lượt gửi email trong ngày."
+        elif exc.code == 403:
+            message = "Tài khoản Brevo chưa được cấp quyền gửi email giao dịch. Hãy hoàn tất kích hoạt tài khoản Brevo."
+        elif exc.code == 429:
+            message = "Brevo đang giới hạn quá nhiều yêu cầu. Vui lòng thử lại sau."
+        else:
+            message = f"Brevo từ chối gửi OTP (HTTP {exc.code}). Hãy kiểm tra API key và sender đã xác minh."
+        raise RuntimeError(message) from exc
     except urllib.error.URLError as exc:
         raise RuntimeError("Không thể kết nối dịch vụ email Brevo.") from exc
 

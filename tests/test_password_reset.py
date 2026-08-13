@@ -1,6 +1,7 @@
 import os
 import json
 import re
+import urllib.error
 import unittest
 from email.message import EmailMessage
 from unittest.mock import patch
@@ -50,6 +51,17 @@ class FakeBrevoResponse:
 
     def __exit__(self, *_args):
         return False
+
+
+class FakeBody:
+    def __init__(self, value):
+        self.value = value
+
+    def read(self, *_args):
+        return self.value
+
+    def close(self):
+        return None
 
 
 class PasswordResetTests(unittest.TestCase):
@@ -122,6 +134,25 @@ class PasswordResetTests(unittest.TestCase):
         self.assertEqual(captured["payload"]["to"][0]["email"], "student@example.com")
         self.assertIn("735204", captured["payload"]["htmlContent"])
         self.assertEqual(captured["headers"].get("Api-key"), "xkeysib-test-key")
+
+    def test_brevo_reports_invalid_api_key_without_exposing_it(self):
+        env = {
+            "BREVO_API_KEY": "xkeysib-secret-value",
+            "BREVO_SENDER_EMAIL": "sender@example.com",
+            "BREVO_SENDER_NAME": "QL Online",
+        }
+        error_body = json.dumps({"code": "unauthorized", "message": "Key not found"}).encode()
+
+        def reject_request(request, timeout):
+            raise urllib.error.HTTPError(request.full_url, 401, "Unauthorized", {}, FakeBody(error_body))
+
+        with patch.dict(os.environ, env, clear=False), patch(
+            "password_reset_api.urllib.request.urlopen", reject_request
+        ):
+            with self.assertRaisesRegex(RuntimeError, "API key không hợp lệ") as context:
+                _send_otp_email("student@example.com", "735204")
+
+        self.assertNotIn("xkeysib-secret-value", str(context.exception))
 
 
 if __name__ == "__main__":
