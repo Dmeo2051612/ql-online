@@ -76,7 +76,25 @@ assertAnswer("còn thứ 3 thì sao, giờ vẫn vậy", ["LM001", "Thứ 3", "0
 aiNguCanh.dangLapThoiKhoaBieu = true;
 aiNguCanh.yeuCauLapLich = "lap thoi khoa bieu hoc ky 1";
 assertAnswer("thầy hoàng học kì 2", ["LM002", "học kỳ 2"], ["LM007", "Phương án"]);
-console.log("STUDENT_AI_INTENTS_OK: 18 scenarios");
+
+dienBoLocHocKy(danhSachLopMonCoTheDangKy);
+if (!availableSemesterFilter.innerHTML.includes('value="1"') || !availableSemesterFilter.innerHTML.includes('value="2"')) {
+    throw new Error("Combobox học kỳ không có đủ lựa chọn theo số học kỳ");
+}
+if (availableSemesterFilter.innerHTML.includes("2026-2027")) {
+    throw new Error("Combobox học kỳ vẫn đang tách lựa chọn theo năm học");
+}
+availableSemesterFilter.value = "1";
+locVaSapXepLopMon();
+if (!availableCourseBody.innerHTML.includes("LM007") || availableCourseBody.innerHTML.includes("LM002")) {
+    throw new Error("Bộ lọc Học kỳ 1 hiển thị sai lớp môn");
+}
+availableSemesterFilter.value = "2";
+locVaSapXepLopMon();
+if (availableCourseBody.innerHTML.includes("LM007") || !availableCourseBody.innerHTML.includes("LM002")) {
+    throw new Error("Bộ lọc Học kỳ 2 hiển thị sai lớp môn");
+}
+console.log("STUDENT_AI_INTENTS_OK: 20 scenarios");
 `;
 
 vm.runInNewContext(fs.readFileSync("static/js/sinh_vien.js", "utf8") + testCode, context);

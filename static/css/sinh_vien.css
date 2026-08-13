@@ -317,23 +317,24 @@ textarea {
 }
 
 /* Giữ bố cục bảng môn học rõ ràng, không bẻ tên thành từng từ. */
-#available-section .data-table th:nth-child(1),
+#available-section .data-table { min-width: 1080px; }
+#available-section .data-table th:nth-child(1) { min-width: 82px; }
+#available-section .data-table th:nth-child(2) { min-width: 155px; }
+#available-section .data-table th:nth-child(3) { min-width: 90px; }
+#available-section .data-table th:nth-child(4) { min-width: 155px; }
+#available-section .data-table th:nth-child(5) { min-width: 190px; }
+#available-section .data-table th:nth-child(6) { min-width: 115px; }
+#available-section .data-table th:nth-child(7) { min-width: 160px; }
+#available-section .data-table th:nth-child(8) { min-width: 105px; }
+
 #registered-section .data-table th:nth-child(1) { min-width: 82px; }
-#available-section .data-table th:nth-child(2),
 #registered-section .data-table th:nth-child(2) { min-width: 155px; }
-#available-section .data-table th:nth-child(3),
 #registered-section .data-table th:nth-child(3) { min-width: 90px; }
-#available-section .data-table th:nth-child(4),
 #registered-section .data-table th:nth-child(4) { min-width: 155px; }
-#available-section .data-table th:nth-child(5),
 #registered-section .data-table th:nth-child(5) { min-width: 95px; }
-#available-section .data-table th:nth-child(6),
 #registered-section .data-table th:nth-child(6) { min-width: 190px; }
-#available-section .data-table th:nth-child(7),
 #registered-section .data-table th:nth-child(7) { min-width: 115px; }
-#available-section .data-table th:nth-child(8),
 #registered-section .data-table th:nth-child(8) { min-width: 160px; }
-#available-section .data-table th:nth-child(9),
 #registered-section .data-table th:nth-child(9) { min-width: 105px; }
 
 #available-section .data-table td:nth-child(2) strong,

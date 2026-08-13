@@ -493,13 +493,17 @@ function dienBoLocHocKy(danhSach) {
     if (!availableSemesterFilter) return;
 
     const giaTriCu = availableSemesterFilter.value;
-    const cacHocKy = [...new Set(danhSach.map((lopMon) => `${lopMon.hocky}|${lopMon.namhoc}`))]
-        .sort((a, b) => a.localeCompare(b, "vi", { numeric: true }));
-    availableSemesterFilter.innerHTML = '<option value="">Tất cả học kỳ</option>' + cacHocKy.map((giaTri) => {
-        const [hocKy, namHoc] = giaTri.split("|");
-        return `<option value="${chuyenThanhVanBanAnToan(giaTri)}">Học kỳ ${chuyenThanhVanBanAnToan(hocKy)} · ${chuyenThanhVanBanAnToan(namHoc)}-${Number(namHoc) + 1}</option>`;
-    }).join("");
-    availableSemesterFilter.value = cacHocKy.includes(giaTriCu) ? giaTriCu : "";
+    const cacHocKy = [...new Set(
+        danhSach
+            .map((lopMon) => chuyenThanhSoAnToan(lopMon.hocky))
+            .filter((hocKy) => hocKy > 0)
+    )].sort((a, b) => a - b);
+    availableSemesterFilter.innerHTML = '<option value="">Tất cả học kỳ</option>' + cacHocKy.map((hocKy) => (
+        `<option value="${hocKy}">Học kỳ ${hocKy}</option>`
+    )).join("");
+    availableSemesterFilter.value = cacHocKy.map(String).includes(String(giaTriCu))
+        ? String(giaTriCu)
+        : "";
 }
 
 
@@ -510,7 +514,7 @@ function locVaSapXepLopMon() {
     const ketQua = danhSachLopMonCoTheDangKy.filter((lopMon) => {
         const noiDung = chuanHoaTimKiem(`${lopMon.malopmon} ${lopMon.mamon} ${lopMon.tenmon} ${lopMon.magv} ${lopMon.tengiaovien}`);
         return (!tuKhoa || noiDung.includes(tuKhoa))
-            && (!hocKy || `${lopMon.hocky}|${lopMon.namhoc}` === hocKy);
+            && (!hocKy || chuyenThanhSoAnToan(lopMon.hocky) === Number(hocKy));
     });
     ketQua.sort((a, b) => {
         if (kieuSapXep === "deadline") return (chuyenThanhDate(a.ngayketthucdk)?.getTime() || Infinity) - (chuyenThanhDate(b.ngayketthucdk)?.getTime() || Infinity);
@@ -534,7 +538,7 @@ function hienThiLopMonCoTheDangKy(
         availableCourseBody.innerHTML = `
             <tr>
                 <td
-                    colspan="9"
+                    colspan="8"
                     class="table-message"
                 >
                     Hiện không có lớp môn nào có thể đăng ký.
@@ -548,10 +552,6 @@ function hienThiLopMonCoTheDangKy(
     const cacDong =
         danhSach.map(
             function (lopMon) {
-                const namKetThuc =
-                    chuyenThanhSoAnToan(
-                        lopMon.namhoc
-                    ) + 1;
                 const siSoHienTai = chuyenThanhSoAnToan(lopMon.sisodadangky);
                 const siSoToiDa = chuyenThanhSoAnToan(lopMon.sisotoida);
                 const phanTramDay = siSoToiDa > 0
@@ -609,23 +609,6 @@ function hienThiLopMonCoTheDangKy(
                                 ${chuyenThanhVanBanAnToan(
                                     lopMon.magv
                                 )}
-                            </small>
-                        </td>
-
-                        <td>
-                            Học kỳ
-                            ${chuyenThanhSoAnToan(
-                                lopMon.hocky
-                            )}
-
-                            <br>
-
-                            <small>
-                                ${chuyenThanhSoAnToan(
-                                    lopMon.namhoc
-                                )}
-                                -
-                                ${namKetThuc}
                             </small>
                         </td>
 
@@ -687,7 +670,7 @@ async function taiLopMonCoTheDangKy() {
     availableCourseBody.innerHTML = `
         <tr>
             <td
-                colspan="9"
+                colspan="8"
                 class="table-message"
             >
                 Đang tải danh sách...
@@ -954,7 +937,7 @@ async function taiLopMonCoTheDangKy() {
         availableCourseBody.innerHTML = `
             <tr>
                 <td
-                    colspan="9"
+                    colspan="8"
                     class="table-message"
                 >
                     ${chuyenThanhVanBanAnToan(
