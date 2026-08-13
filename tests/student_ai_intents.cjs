@@ -15,6 +15,8 @@ const context = {
     localStorage: { getItem() { return null; }, setItem() {} },
     document: {
         getElementById: fakeElement,
+        addEventListener() {},
+        querySelector() { return null; },
         querySelectorAll() { return []; },
         createElement() {
             const item = fakeElement();
@@ -27,7 +29,7 @@ const context = {
         }
     },
     window: {
-        addEventListener() {}, setTimeout,
+        addEventListener() {}, setTimeout, innerWidth: 1440, innerHeight: 900,
         location: { hash: "" }, history: { replaceState() {} }
     },
     alert() {}, confirm() { return true; }
@@ -164,6 +166,11 @@ assertAnswer("lịch học của tôi ra sao", ["OLD1"]);
 assertAnswer("ngày mai có tiết gì", ["OLD1"]);
 assertAnswer("cô Vân dạy những gì", ["LM001"], ["LM002"]);
 assertAnswer("người đó hạn chót khi nào", ["LM001"], ["LM002"]);
+
+const viTriTrongVung = gioiHanViTriTroLy(100, -30, 390, 590, { left: 325, top: 0, right: 1440, bottom: 900 }, 1440, 900);
+if (viTriTrongVung.x !== 337 || viTriTrongVung.y !== 12) throw new Error("Chatbot không được giới hạn ở mép trái/trên của vùng nội dung");
+const viTriSatGoc = gioiHanViTriTroLy(2000, 2000, 390, 590, { left: 325, top: 0, right: 1440, bottom: 900 }, 1440, 900);
+if (viTriSatGoc.x !== 1038 || viTriSatGoc.y !== 298) throw new Error("Chatbot không được giới hạn ở mép phải/dưới của vùng nội dung");
 
 dienBoLocHocKy(danhSachLopMonCoTheDangKy);
 if (!availableSemesterFilter.innerHTML.includes('value="1"') || !availableSemesterFilter.innerHTML.includes('value="2"')) {

@@ -2124,6 +2124,8 @@ const aiChatbox = document.getElementById("ai-chatbox");
 const aiChatMessages = document.getElementById("ai-chat-messages");
 const aiChatForm = document.getElementById("ai-chat-form");
 const aiChatInput = document.getElementById("ai-chat-input");
+const aiChatDragHandle = document.getElementById("ai-chat-drag-handle");
+const aiChatMoveStatus = document.getElementById("ai-chat-move-status");
 let aiDaChao = false;
 const aiNguCanh = {
     dangLapThoiKhoaBieu: false,
@@ -2136,6 +2138,23 @@ const aiNguCanh = {
     traCuuGanNhat: null,
     yDinhGanNhat: ""
 };
+
+function gioiHanViTriTroLy(x, y, rong, cao, vung, rongManHinh, caoManHinh, khoangCach = 12) {
+    const traiVung = Number.isFinite(Number(vung?.left)) ? Number(vung.left) : 0;
+    const trenVung = Number.isFinite(Number(vung?.top)) ? Number(vung.top) : 0;
+    const phaiVung = Number.isFinite(Number(vung?.right)) ? Number(vung.right) : Number(rongManHinh);
+    const duoiVung = Number.isFinite(Number(vung?.bottom)) ? Number(vung.bottom) : Number(caoManHinh);
+    const traiNhoNhat = Math.max(khoangCach, traiVung + khoangCach);
+    const trenNhoNhat = Math.max(khoangCach, trenVung + khoangCach);
+    const phaiLonNhat = Math.min(Number(rongManHinh) - khoangCach, phaiVung - khoangCach);
+    const duoiLonNhat = Math.min(Number(caoManHinh) - khoangCach, duoiVung - khoangCach);
+    const traiLonNhat = Math.max(traiNhoNhat, phaiLonNhat - Number(rong));
+    const trenLonNhat = Math.max(trenNhoNhat, duoiLonNhat - Number(cao));
+    return {
+        x: Math.min(traiLonNhat, Math.max(traiNhoNhat, Number(x) || 0)),
+        y: Math.min(trenLonNhat, Math.max(trenNhoNhat, Number(y) || 0))
+    };
+}
 
 function themTinNhanAI(noiDung, vaiTro = "assistant", laHtml = false) {
     if (!aiChatMessages) return null;
@@ -3052,6 +3071,101 @@ document.getElementById("ai-chat-close")?.addEventListener("click", () => {
     aiChatbox.hidden = true;
     aiChatToggle?.setAttribute("aria-expanded", "false");
 });
+
+let aiChoPhepDiChuyen = false;
+let aiDangDiChuyen = false;
+let aiDoLechKeoX = 0;
+let aiDoLechKeoY = 0;
+
+function layVungDiChuyenTroLy() {
+    const noiDungChinh = document.querySelector(".main-content");
+    const sectionDangMo = document.querySelector(".student-section:not(.hidden-section)");
+    const khungTroLy = aiChatbox?.getBoundingClientRect();
+    const khungSection = sectionDangMo?.getBoundingClientRect();
+    if (khungSection && khungTroLy
+        && khungSection.width >= khungTroLy.width + 24
+        && Math.min(khungSection.bottom, window.innerHeight) - Math.max(khungSection.top, 0) >= khungTroLy.height + 24) {
+        return khungSection;
+    }
+    return noiDungChinh?.getBoundingClientRect() || {
+        left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight
+    };
+}
+
+function capNhatCheDoDiChuyenTroLy(duocPhep) {
+    aiChoPhepDiChuyen = Boolean(duocPhep) && window.innerWidth > 760;
+    aiDangDiChuyen = false;
+    aiChatbox?.classList.toggle("is-move-enabled", aiChoPhepDiChuyen);
+    aiChatbox?.classList.remove("is-dragging");
+    aiChatDragHandle?.setAttribute("aria-grabbed", aiChoPhepDiChuyen ? "true" : "false");
+    if (aiChatMoveStatus) {
+        aiChatMoveStatus.textContent = aiChoPhepDiChuyen
+            ? "Giữ chuột để kéo · Esc để khóa"
+            : "Nháy đúp để di chuyển";
+    }
+}
+
+function datViTriTroLyTrongPhamVi(x, y) {
+    if (!aiChatbox) return;
+    const khung = aiChatbox.getBoundingClientRect();
+    const viTri = gioiHanViTriTroLy(
+        x, y, khung.width, khung.height, layVungDiChuyenTroLy(), window.innerWidth, window.innerHeight
+    );
+    aiChatbox.style.left = `${viTri.x}px`;
+    aiChatbox.style.top = `${viTri.y}px`;
+    aiChatbox.style.right = "auto";
+    aiChatbox.style.bottom = "auto";
+}
+
+aiChatDragHandle?.addEventListener("dblclick", (suKien) => {
+    if (suKien.target.closest("button") || window.innerWidth <= 760) return;
+    suKien.preventDefault();
+    capNhatCheDoDiChuyenTroLy(!aiChoPhepDiChuyen);
+});
+
+aiChatDragHandle?.addEventListener("pointerdown", (suKien) => {
+    if (!aiChoPhepDiChuyen || suKien.button !== 0 || suKien.target.closest("button")) return;
+    const khung = aiChatbox.getBoundingClientRect();
+    aiDangDiChuyen = true;
+    aiDoLechKeoX = suKien.clientX - khung.left;
+    aiDoLechKeoY = suKien.clientY - khung.top;
+    aiChatbox.classList.add("is-dragging");
+    aiChatDragHandle.setPointerCapture?.(suKien.pointerId);
+    suKien.preventDefault();
+});
+
+aiChatDragHandle?.addEventListener("pointermove", (suKien) => {
+    if (!aiDangDiChuyen) return;
+    datViTriTroLyTrongPhamVi(suKien.clientX - aiDoLechKeoX, suKien.clientY - aiDoLechKeoY);
+});
+
+function dungDiChuyenTroLy(suKien) {
+    if (!aiDangDiChuyen) return;
+    aiDangDiChuyen = false;
+    aiChatbox?.classList.remove("is-dragging");
+    if (suKien?.pointerId !== undefined) aiChatDragHandle?.releasePointerCapture?.(suKien.pointerId);
+}
+
+aiChatDragHandle?.addEventListener("pointerup", dungDiChuyenTroLy);
+aiChatDragHandle?.addEventListener("pointercancel", dungDiChuyenTroLy);
+document.addEventListener("keydown", (suKien) => {
+    if (suKien.key === "Escape" && aiChoPhepDiChuyen) capNhatCheDoDiChuyenTroLy(false);
+});
+window.addEventListener("resize", () => {
+    if (window.innerWidth <= 760) {
+        capNhatCheDoDiChuyenTroLy(false);
+        aiChatbox?.style.removeProperty("left");
+        aiChatbox?.style.removeProperty("top");
+        aiChatbox?.style.removeProperty("right");
+        aiChatbox?.style.removeProperty("bottom");
+        return;
+    }
+    if (aiChatbox && aiChatbox.style.left) {
+        const khung = aiChatbox.getBoundingClientRect();
+        datViTriTroLyTrongPhamVi(khung.left, khung.top);
+    }
+});
+
 aiChatForm?.addEventListener("submit", (suKien) => { suKien.preventDefault(); xuLyCauHoiAI(aiChatInput.value); });
 document.querySelectorAll("[data-ai-question]").forEach((nut) => nut.addEventListener("click", () => xuLyCauHoiAI(nut.dataset.aiQuestion)));
 aiChatMessages?.addEventListener("click", function (suKien) {
