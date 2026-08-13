@@ -122,6 +122,49 @@ aiNguCanh.dangLapThoiKhoaBieu = true;
 aiNguCanh.yeuCauLapLich = "lap thoi khoa bieu hoc ky 1";
 assertAnswer("thầy hoàng học kì 2", ["LM002", "học kỳ 2"], ["LM007", "Phương án"]);
 
+// Hội thoại nối tiếp: giữ loại câu hỏi, thay đối tượng và hiểu cách nói đời thường.
+assertAnswer("thầy Hoàng dạy cái gì", ["LM002", "LM007"], ["LM001"]);
+assertAnswer("ông ấy còn chỗ không", ["LM002", "LM007"], ["LM001"]);
+assertAnswer("còn cô Vân thì sao", ["LM001", "30 chỗ"], ["LM002"]);
+assertAnswer("thế cô Hồng?", ["LM004", "30 chỗ"], ["LM001"]);
+assertAnswer("tìm giúp mình môn Web", ["LM004"], ["LM001"]);
+assertAnswer("cái đó lịch ra sao", ["LM004", "Thứ 4", "14:00–16:00"], ["LM002"]);
+assertAnswer("còn hệ điều hành thì sao", ["LM002", "LM007"], ["LM001"]);
+assertAnswer("vậy mấy tín?", ["3 tín chỉ"]);
+assertAnswer("còn môn Web?", ["3 tín chỉ"], ["LM001"]);
+
+assertAnswer("cô Vân mở những lớp nào", ["LM001"], ["LM002"]);
+assertAnswer("không, ý tôi là thầy Hoàng", ["LM002", "LM007"], ["LM001"]);
+assertAnswer("thầy Hoàng dạy bao nhiêu lớp", ["2 lớp"], ["Bạn đã đăng ký"]);
+assertAnswer("thế học kỳ 1?", ["1 lớp", "học kỳ 1"]);
+assertAnswer("môn OS có nhiêu lớp", ["2 lớp", "Hệ điều hành"]);
+assertAnswer("còn học kỳ 2 thì sao", ["1 lớp", "học kỳ 2"]);
+assertAnswer("môn Web còn nhiêu chỗ", ["LM004", "30 chỗ"], ["LM001"]);
+assertAnswer("OS học vào khi nào", ["LM002", "LM007", "Thứ 2"], ["LM001"]);
+assertAnswer("còn môn an toàn thông tin?", ["LM001", "Thứ 3"], ["LM002"]);
+assertAnswer("vậy ai dạy?", ["Cô Vân"], ["Thầy Hoàng"]);
+
+assertAnswer("lọc lớp thầy Hoàng học kỳ 1", ["LM007"], ["LM002"]);
+assertAnswer("bỏ lọc học kỳ, vẫn thầy đó", ["LM002", "LM007"], ["LM001"]);
+assertAnswer("ai dạy", ["môn nào"]);
+assertAnswer("lớp nào", ["tiêu chí nào"]);
+assertAnswer("xin lỗi nha", ["Không sao"]);
+assertAnswer("bạn khỏe không", ["hoạt động ổn"]);
+assertAnswer("phiền bạn tìm lớp của cô Hồng", ["LM004"], ["LM001"]);
+
+aiNguCanh.dangLapThoiKhoaBieu = false; aiNguCanh.yeuCauLapLich = "";
+assertAnswer("xếp giúp tôi 2 môn học kỳ 2", ["Phương án 1", "2 môn"]);
+assertAnswer("không học thứ 2 nữa", ["LM001", "LM004"], ["LM002"]);
+assertAnswer("đổi sang học kỳ 1", ["học kỳ 1"], ["LM001", "LM004"]);
+assertAnswer("reset", ["đã xóa các điều kiện"]);
+assertAnswer("OS deadline là khi nào", ["LM002", "LM007"], ["LM001"]);
+assertAnswer("môn kia đăng ký nổi không", ["LM002", "LM007"], ["LM001"]);
+assertAnswer("còn Web thì sao", ["LM004"], ["LM002"]);
+assertAnswer("lịch học của tôi ra sao", ["OLD1"]);
+assertAnswer("ngày mai có tiết gì", ["OLD1"]);
+assertAnswer("cô Vân dạy những gì", ["LM001"], ["LM002"]);
+assertAnswer("người đó hạn chót khi nào", ["LM001"], ["LM002"]);
+
 dienBoLocHocKy(danhSachLopMonCoTheDangKy);
 if (!availableSemesterFilter.innerHTML.includes('value="1"') || !availableSemesterFilter.innerHTML.includes('value="2"')) {
     throw new Error("Combobox học kỳ không có đủ lựa chọn theo số học kỳ");
@@ -139,7 +182,7 @@ locVaSapXepLopMon();
 if (availableCourseBody.innerHTML.includes("LM007") || !availableCourseBody.innerHTML.includes("LM002")) {
     throw new Error("Bộ lọc Học kỳ 2 hiển thị sai lớp môn");
 }
-console.log("STUDENT_AI_INTENTS_OK: 65 scenarios");
+console.log("STUDENT_AI_INTENTS_OK: 100 scenarios");
 `;
 
 vm.runInNewContext(fs.readFileSync("static/js/sinh_vien.js", "utf8") + testCode, context);
