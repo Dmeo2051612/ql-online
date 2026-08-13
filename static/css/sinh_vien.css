@@ -551,14 +551,54 @@ textarea {
 .schedule-inline { white-space: nowrap; }
 
 .ai-chat-toggle {
-    position: fixed; right: 28px; bottom: 28px; z-index: 1200; width: 58px; height: 58px;
-    color: #fff; background: linear-gradient(135deg, #2563eb, #7c3aed); border: 0;
-    border-radius: 18px; box-shadow: 0 16px 35px rgba(37, 99, 235, .35);
-    font-size: 25px; cursor: pointer; transition: transform .2s ease;
+    position: fixed; right: 22px; bottom: 18px; z-index: 1200; width: 94px; height: 112px;
+    padding: 0; color: #fff; background: transparent; border: 0;
+    cursor: pointer; isolation: isolate;
 }
-.ai-chat-toggle:hover { transform: translateY(-3px) scale(1.03); }
+.ai-chat-toggle:focus-visible { outline: none; }
+.ai-chat-toggle:focus-visible .ai-mascot-head { box-shadow: 0 0 0 5px rgba(37, 99, 235, .2), inset 0 2px 0 rgba(255,255,255,.8); }
+.ai-mascot-label {
+    position: absolute; right: 69px; top: 10px; width: max-content; padding: 7px 10px;
+    color: #334155; background: #fff; border: 1px solid #dbeafe; border-radius: 12px 12px 3px 12px;
+    box-shadow: 0 8px 24px rgba(37, 99, 235, .15); font-size: 11px; font-weight: 750;
+    opacity: 0; transform: translateX(7px) scale(.94); transform-origin: right bottom;
+    transition: opacity .2s ease, transform .2s ease; pointer-events: none;
+}
+.ai-chat-toggle:hover .ai-mascot-label,
+.ai-chat-toggle:focus-visible .ai-mascot-label { opacity: 1; transform: translateX(0) scale(1); }
+.ai-mascot {
+    position: absolute; inset: 4px 5px 7px; animation: ai-mascot-float 3.2s ease-in-out infinite;
+    filter: drop-shadow(0 14px 13px rgba(37, 99, 235, .28));
+    transition: filter .2s ease, transform .2s ease;
+}
+.ai-chat-toggle:hover .ai-mascot { filter: drop-shadow(0 17px 15px rgba(109, 40, 217, .34)); }
+.ai-mascot-head {
+    position: absolute; left: 16px; top: 20px; z-index: 3; width: 54px; height: 46px;
+    padding: 5px; background: linear-gradient(145deg, #eef4ff, #c7d7ff); border: 3px solid #3157d5;
+    border-radius: 19px 19px 16px 16px; box-shadow: inset 0 2px 0 rgba(255,255,255,.8);
+}
+.ai-mascot-face { position: relative; display: block; width: 100%; height: 100%; background: #172554; border-radius: 12px; overflow: hidden; }
+.ai-mascot-eye { position: absolute; top: 10px; width: 8px; height: 9px; background: #67e8f9; border-radius: 50%; box-shadow: 0 0 8px #22d3ee; animation: ai-mascot-blink 4.4s infinite; }
+.ai-mascot-eye.left { left: 9px; }.ai-mascot-eye.right { right: 9px; }
+.ai-mascot-mouth { position: absolute; left: 50%; bottom: 7px; width: 13px; height: 6px; border-bottom: 2px solid #a5f3fc; border-radius: 0 0 10px 10px; transform: translateX(-50%); }
+.ai-mascot-antenna { position: absolute; left: 41px; top: 5px; z-index: 2; width: 3px; height: 19px; background: #3157d5; border-radius: 3px; transform-origin: bottom; animation: ai-mascot-antenna 2.6s ease-in-out infinite; }
+.ai-mascot-antenna i { position: absolute; left: -4px; top: -4px; width: 11px; height: 11px; background: #22d3ee; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 10px #22d3ee; }
+.ai-mascot-ear { position: absolute; top: 35px; z-index: 2; width: 10px; height: 20px; background: #7c3aed; border: 2px solid #3157d5; }
+.ai-mascot-ear.left { left: 9px; border-radius: 9px 2px 2px 9px; }.ai-mascot-ear.right { right: 9px; border-radius: 2px 9px 9px 2px; }
+.ai-mascot-body { position: absolute; left: 24px; top: 63px; z-index: 2; display: grid; place-items: center; width: 38px; height: 31px; background: linear-gradient(145deg, #3b82f6, #6d28d9); border: 3px solid #3157d5; border-radius: 8px 8px 16px 16px; }
+.ai-mascot-body b { display: grid; place-items: center; width: 18px; height: 18px; color: #4338ca; background: #fff; border-radius: 6px; font-size: 11px; }
+.ai-mascot-arm { position: absolute; top: 68px; z-index: 1; width: 10px; height: 27px; background: #7c3aed; border: 2px solid #3157d5; border-radius: 8px; transform-origin: top center; }
+.ai-mascot-arm.left { left: 17px; transform: rotate(20deg); }.ai-mascot-arm.right { right: 17px; animation: ai-mascot-wave 2.4s ease-in-out infinite; }
+.ai-mascot-shadow { position: absolute; left: 21px; bottom: 0; width: 46px; height: 9px; background: rgba(30, 64, 175, .2); border-radius: 50%; animation: ai-mascot-shadow 3.2s ease-in-out infinite; }
+.ai-chat-toggle[aria-expanded="true"] .ai-mascot-mouth { width: 10px; height: 10px; background: #a5f3fc; border: 0; border-radius: 50%; }
+.ai-chat-toggle[aria-expanded="true"] .ai-mascot { animation-duration: 1.5s; }
+@keyframes ai-mascot-float { 0%, 100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-7px) rotate(1deg); } }
+@keyframes ai-mascot-shadow { 0%, 100% { opacity: .65; transform: scaleX(1); } 50% { opacity: .35; transform: scaleX(.78); } }
+@keyframes ai-mascot-blink { 0%, 43%, 47%, 100% { transform: scaleY(1); } 45% { transform: scaleY(.12); } }
+@keyframes ai-mascot-antenna { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
+@keyframes ai-mascot-wave { 0%, 56%, 100% { transform: rotate(-18deg); } 68% { transform: rotate(-60deg); } 80% { transform: rotate(-28deg); } 90% { transform: rotate(-55deg); } }
 .ai-chatbox {
-    position: fixed; right: 28px; bottom: 98px; z-index: 1200; display: grid;
+    position: fixed; right: 28px; bottom: 126px; z-index: 1200; display: grid;
     grid-template-rows: auto minmax(230px, 1fr) auto auto; width: min(390px, calc(100vw - 32px));
     height: min(590px, calc(100vh - 140px)); overflow: hidden; background: #fff;
     border: 1px solid #dbe3ef; border-radius: 20px; box-shadow: 0 24px 70px rgba(15, 23, 42, .25);
@@ -650,8 +690,16 @@ textarea {
     .student-conflict-item { align-items: flex-start; flex-direction: column; }
     .calendar-note-form { grid-template-columns: 1fr; }
     .calendar-note-form h3, .calendar-note-form input:last-of-type { grid-column: auto; }
-    .ai-chat-toggle { right: 16px; bottom: 16px; }
-    .ai-chatbox { right: 16px; bottom: 86px; height: min(570px, calc(100vh - 110px)); }
+    .ai-chat-toggle { right: 8px; bottom: 8px; transform: scale(.88); transform-origin: right bottom; }
+    .ai-chatbox { right: 16px; bottom: 112px; height: min(570px, calc(100vh - 126px)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ai-mascot,
+    .ai-mascot-shadow,
+    .ai-mascot-eye,
+    .ai-mascot-antenna,
+    .ai-mascot-arm.right { animation: none; }
 }
 
 

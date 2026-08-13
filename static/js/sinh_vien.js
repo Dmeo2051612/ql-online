@@ -2918,6 +2918,7 @@ async function xuLyCauHoiAI(cauHoi) {
 function moTroLyAI() {
     if (!aiChatbox) return;
     aiChatbox.hidden = false;
+    aiChatToggle?.setAttribute("aria-expanded", "true");
     if (!aiDaChao) {
         themTinNhanAI("Chào bạn! Mình có thể lập thời khóa biểu từ các môn chưa đăng ký, ưu tiên đúng môn và giảng viên bạn yêu cầu, đồng thời tự loại mọi lớp trùng lịch.");
         aiDaChao = true;
@@ -2925,8 +2926,18 @@ function moTroLyAI() {
     aiChatInput?.focus();
 }
 
-aiChatToggle?.addEventListener("click", moTroLyAI);
-document.getElementById("ai-chat-close")?.addEventListener("click", () => { aiChatbox.hidden = true; });
+aiChatToggle?.addEventListener("click", () => {
+    if (!aiChatbox?.hidden) {
+        aiChatbox.hidden = true;
+        aiChatToggle.setAttribute("aria-expanded", "false");
+        return;
+    }
+    moTroLyAI();
+});
+document.getElementById("ai-chat-close")?.addEventListener("click", () => {
+    aiChatbox.hidden = true;
+    aiChatToggle?.setAttribute("aria-expanded", "false");
+});
 aiChatForm?.addEventListener("submit", (suKien) => { suKien.preventDefault(); xuLyCauHoiAI(aiChatInput.value); });
 document.querySelectorAll("[data-ai-question]").forEach((nut) => nut.addEventListener("click", () => xuLyCauHoiAI(nut.dataset.aiQuestion)));
 aiChatMessages?.addEventListener("click", function (suKien) {
@@ -2938,4 +2949,5 @@ aiChatMessages?.addEventListener("click", function (suKien) {
         locVaSapXepLopMon();
     }
     aiChatbox.hidden = true;
+    aiChatToggle?.setAttribute("aria-expanded", "false");
 });

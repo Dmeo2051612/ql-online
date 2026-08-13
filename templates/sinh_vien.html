@@ -12,7 +12,7 @@
 
     <link
         rel="stylesheet"
-        href="{{ url_for('static', filename='css/sinh_vien.css') }}?v=10"
+        href="{{ url_for('static', filename='css/sinh_vien.css') }}?v=11"
     >
     <link rel="stylesheet" href="{{ url_for('static', filename='css/portal-shell.css') }}?v=5">
 </head>
@@ -278,10 +278,28 @@
         </main>
     </div>
 
-    <button type="button" id="ai-chat-toggle" class="ai-chat-toggle" aria-label="Mở trợ lý học vụ">✦</button>
+    <button type="button" id="ai-chat-toggle" class="ai-chat-toggle" aria-label="Mở trợ lý học vụ" aria-expanded="false">
+        <span class="ai-mascot-label">Hỏi mình nhé!</span>
+        <span class="ai-mascot" aria-hidden="true">
+            <span class="ai-mascot-antenna"><i></i></span>
+            <span class="ai-mascot-ear left"></span>
+            <span class="ai-mascot-ear right"></span>
+            <span class="ai-mascot-head">
+                <span class="ai-mascot-face">
+                    <i class="ai-mascot-eye left"></i>
+                    <i class="ai-mascot-eye right"></i>
+                    <i class="ai-mascot-mouth"></i>
+                </span>
+            </span>
+            <span class="ai-mascot-arm left"></span>
+            <span class="ai-mascot-arm right"></span>
+            <span class="ai-mascot-body"><b>Q</b></span>
+            <span class="ai-mascot-shadow"></span>
+        </span>
+    </button>
     <aside id="ai-chatbox" class="ai-chatbox" hidden aria-label="Trợ lý học vụ AI">
         <header class="ai-chat-header">
-            <div><span>✦</span><div><strong>QL Assistant</strong><small>Trợ lý học vụ</small></div></div>
+            <div><span>🤖</span><div><strong>QL Assistant</strong><small>Trợ lý học vụ</small></div></div>
             <button type="button" id="ai-chat-close" aria-label="Đóng">×</button>
         </header>
         <div id="ai-chat-messages" class="ai-chat-messages" aria-live="polite"></div>
@@ -298,7 +316,7 @@
     </aside>
 
     <script
-        src="{{ url_for('static', filename='js/sinh_vien.js') }}?v=17"
+        src="{{ url_for('static', filename='js/sinh_vien.js') }}?v=18"
     ></script>
 
     <script
