@@ -2692,12 +2692,12 @@ function hienThiDanhSachKhoaQuanLy(danhSach) {
         nhomNut.className = "action-group";
         const nutSua = document.createElement("button");
         nutSua.type = "button";
-        nutSua.className = "edit-button";
+        nutSua.className = "table-action edit-action";
         nutSua.textContent = "Sửa";
         nutSua.addEventListener("click", () => moModalSuaKhoa(khoa));
         const nutXoa = document.createElement("button");
         nutXoa.type = "button";
-        nutXoa.className = "delete-button";
+        nutXoa.className = "table-action delete-action";
         nutXoa.textContent = "Xóa";
         nutXoa.addEventListener("click", () => xoaKhoa(khoa));
         nhomNut.append(nutSua, nutXoa);
@@ -2907,13 +2907,13 @@ departmentForm.addEventListener("submit", async function (event) {
 
 function capNhatTomTatChinhSach(maxAgeSeconds, historyCount) {
     if (!maxAgeSeconds) {
-        passwordPolicySummary.textContent = `Không hết hạn · nhớ ${historyCount} mật khẩu`;
+        passwordPolicySummary.textContent = `Không hết hạn · Password History Value: ${historyCount}`;
         return;
     }
     const hours = Math.floor(maxAgeSeconds / 3600);
     const minutes = Math.floor((maxAgeSeconds % 3600) / 60);
     const seconds = maxAgeSeconds % 60;
-    passwordPolicySummary.textContent = `${hours} giờ ${minutes} phút ${seconds} giây · nhớ ${historyCount}`;
+    passwordPolicySummary.textContent = `${hours} giờ ${minutes} phút ${seconds} giây · Password History Value: ${historyCount}`;
 }
 
 

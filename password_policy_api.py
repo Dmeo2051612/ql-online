@@ -122,6 +122,19 @@ def password_policy_status():
     if not identity:
         return jsonify(error="Bạn chưa đăng nhập."), 401
 
+    if identity["role"] == "admin":
+        return jsonify(
+            enabled=False,
+            maxAgeSeconds=0,
+            historyCount=0,
+            passwordChangedAtMillis=0,
+            expiresAtMillis=0,
+            remainingSeconds=0,
+            warning=False,
+            expired=False,
+            exempt=True,
+        ), 200
+
     database = firestore.client()
     policy = _load_policy(database)
     max_age_seconds = policy["maxAgeSeconds"]
@@ -192,6 +205,8 @@ def change_password_with_policy():
     profile_snapshot = profile_ref.get()
     profile = profile_snapshot.to_dict() or {} if profile_snapshot.exists else {}
     policy = _load_policy(database)
+    if identity["role"] == "admin":
+        policy = {**policy, "maxAgeSeconds": 0, "historyCount": 0}
     history = list(profile.get("passwordHistory") or [])
     enforced_history = history[:policy["historyCount"]]
     if password_matches_history(new_password, enforced_history):

@@ -6,7 +6,8 @@ import { doc, getDoc }
     from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
 
 import {
-    signInWithEmailAndPassword
+    signInWithEmailAndPassword,
+    signOut
 } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
 
 
@@ -38,10 +39,19 @@ const lockoutMessage = document.getElementById("lockout-message");
 const lockoutRequestState = document.getElementById("lockout-request-state");
 const cancelLockoutContact = document.getElementById("cancel-lockout-contact");
 const sendLockoutContact = document.getElementById("send-lockout-contact");
+const forcedPasswordPanel = document.getElementById("forced-password-panel");
+const forcedPasswordForm = document.getElementById("forced-password-form");
+const forcedPasswordAccount = document.getElementById("forced-password-account");
+const forcedCurrentPassword = document.getElementById("forced-current-password");
+const forcedNewPassword = document.getElementById("forced-new-password");
+const forcedConfirmPassword = document.getElementById("forced-confirm-password");
+const forcedPasswordMessage = document.getElementById("forced-password-message");
+const forcedPasswordSubmit = document.getElementById("forced-password-submit");
 
 
 const KHOA_DANG_NHAP_KEY = "ql-online-login-lockout-v1";
 const YEU_CAU_MO_KHOA_KEY = "ql-online-unlock-request-v1";
+const EMAIL_MAT_KHAU_HET_HAN_KEY = "ql-online-expired-password-email";
 const SO_LAN_SAI_TOI_DA = 5;
 const CUA_SO_THU_DANG_NHAP = 10 * 60 * 1000;
 const THOI_GIAN_KHOA = 15 * 60 * 1000;
@@ -52,6 +62,7 @@ let boDemKiemTraMoKhoa = null;
 let resetStep = "request";
 let passwordResetRequestId = "";
 let passwordResetToken = "";
+let forcedPasswordEmail = "";
 
 
 auth.languageCode = "vi";
@@ -318,6 +329,51 @@ function setLoading(dang) {
 }
 
 
+async function goiApiCoXacThuc(user, url, options = {}) {
+    const token = await user.getIdToken(true);
+    const response = await fetch(url, {
+        ...options,
+        headers: {
+            "Authorization": `Bearer ${token}`,
+            ...(options.body ? { "Content-Type": "application/json" } : {}),
+            ...(options.headers || {})
+        }
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Không thể xử lý yêu cầu.");
+    return data;
+}
+
+
+function hienThiBuocDoiMatKhauBatBuoc(email) {
+    forcedPasswordEmail = chuanHoaEmail(email);
+    emailInput.value = forcedPasswordEmail;
+    loginForm.classList.add("login-form-hidden");
+    loginError.textContent = "";
+    loginError.classList.remove("login-success");
+    lockoutSupport.classList.add("hidden");
+    document.getElementById("forgot-password-panel")?.classList.add("hidden");
+    forcedPasswordAccount.textContent = `Tài khoản: ${forcedPasswordEmail}`;
+    forcedPasswordMessage.textContent = "";
+    forcedPasswordPanel.classList.remove("hidden");
+    document.querySelector(".login-card > h1").textContent = "Xác thực bảo mật";
+    forcedCurrentPassword.focus();
+}
+
+
+function quayLaiDangNhapSauKhiDoiMatKhau() {
+    forcedPasswordEmail = "";
+    forcedPasswordPanel.classList.add("hidden");
+    loginForm.classList.remove("login-form-hidden");
+    document.querySelector(".login-card > h1").textContent = "Đăng nhập";
+    passwordInput.value = "";
+    loginError.classList.add("login-success");
+    loginError.textContent = "Đổi mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới.";
+    window.sessionStorage.removeItem(EMAIL_MAT_KHAU_HET_HAN_KEY);
+    passwordInput.focus();
+}
+
+
 emailInput.addEventListener("input", function () {
     if (!dangXuLyDangNhap) {
         capNhatGiaoDienKhoa(emailInput.value);
@@ -388,6 +444,7 @@ lockoutContactForm.addEventListener("submit", async function (event) {
 loginForm.addEventListener("submit", async function (event) {
     event.preventDefault();
     loginError.textContent = "";
+    loginError.classList.remove("login-success");
     delete loginError.dataset.lockout;
 
     const email = emailInput.value.trim();
@@ -429,12 +486,20 @@ loginForm.addEventListener("submit", async function (event) {
         if (role === "admin") {
             dangChuyenTrang = true;
             window.location.href = "/admin";
-        } else if (role === "sinhvien") {
+        } else if (role === "sinhvien" || role === "giaovien") {
+            const trangThaiMatKhau = await goiApiCoXacThuc(
+                ketQua.user,
+                "/api/password-policy/status"
+            );
+            if (trangThaiMatKhau.expired) {
+                await signOut(auth);
+                setLoading(false);
+                hienThiBuocDoiMatKhauBatBuoc(email);
+                dangChuyenTrang = true;
+                return;
+            }
             dangChuyenTrang = true;
-            window.location.href = "/sinh-vien";
-        } else if (role === "giaovien") {
-            dangChuyenTrang = true;
-            window.location.href = "/giao-vien";
+            window.location.href = role === "sinhvien" ? "/sinh-vien" : "/giao-vien";
         } else {
             loginError.textContent = "Tài khoản không có phân quyền hợp lệ.";
         }
@@ -461,12 +526,83 @@ loginForm.addEventListener("submit", async function (event) {
         } else {
             loginError.textContent = "Không thể đăng nhập. Vui lòng thử lại.";
         }
+        if (auth.currentUser && !dangChuyenTrang) {
+            await signOut(auth).catch(() => {});
+        }
     } finally {
         if (!dangChuyenTrang) {
             setLoading(false);
         }
     }
 });
+
+
+forcedPasswordForm.addEventListener("submit", async function (event) {
+    event.preventDefault();
+    forcedPasswordMessage.textContent = "";
+    const currentPassword = forcedCurrentPassword.value;
+    const newPassword = forcedNewPassword.value;
+    const confirmation = forcedConfirmPassword.value;
+    const policyError = passwordPolicyError(newPassword, forcedPasswordEmail);
+    if (!currentPassword || !newPassword || !confirmation) {
+        forcedPasswordMessage.textContent = "Vui lòng nhập đầy đủ cả ba trường mật khẩu.";
+        return;
+    }
+    if (currentPassword === newPassword) {
+        forcedPasswordMessage.textContent = "Mật khẩu mới phải khác mật khẩu hiện tại.";
+        return;
+    }
+    if (policyError) {
+        forcedPasswordMessage.textContent = policyError;
+        return;
+    }
+    if (newPassword !== confirmation) {
+        forcedPasswordMessage.textContent = "Hai lần nhập mật khẩu mới chưa khớp.";
+        return;
+    }
+
+    forcedPasswordSubmit.disabled = true;
+    forcedPasswordSubmit.textContent = "Đang cập nhật...";
+    try {
+        const credential = await signInWithEmailAndPassword(
+            auth,
+            forcedPasswordEmail,
+            currentPassword
+        );
+        const status = await goiApiCoXacThuc(
+            credential.user,
+            "/api/password-policy/status"
+        );
+        if (status.exempt) {
+            throw new Error("Tài khoản quản trị không áp dụng chính sách hết hạn mật khẩu.");
+        }
+        await goiApiCoXacThuc(credential.user, "/api/password-policy/change", {
+            method: "POST",
+            body: JSON.stringify({ currentPassword, newPassword })
+        });
+        await signOut(auth);
+        forcedPasswordForm.reset();
+        quayLaiDangNhapSauKhiDoiMatKhau();
+        window.history.replaceState({}, "", "/");
+    } catch (loi) {
+        await signOut(auth).catch(() => {});
+        const code = String(loi?.code || "").toLowerCase();
+        forcedPasswordMessage.textContent = laLoiSaiThongTinDangNhap(code)
+            ? "Mật khẩu hiện tại không đúng."
+            : (loi?.message || "Không thể cập nhật mật khẩu lúc này.");
+    } finally {
+        forcedPasswordSubmit.disabled = false;
+        forcedPasswordSubmit.textContent = "Cập nhật mật khẩu";
+    }
+});
+
+
+const thamSoDangNhap = new URLSearchParams(window.location.search);
+if (thamSoDangNhap.get("passwordExpired") === "1") {
+    hienThiBuocDoiMatKhauBatBuoc(
+        window.sessionStorage.getItem(EMAIL_MAT_KHAU_HET_HAN_KEY) || emailInput.value
+    );
+}
 
 
 function resetStepLabel() {

@@ -59,6 +59,17 @@ class FakeDatabase:
 
 
 class PasswordPolicyTest(unittest.TestCase):
+    def test_admin_is_exempt_from_password_age_policy(self):
+        with patch("password_policy_api._current_identity", return_value={
+            "uid": "admin-uid", "email": "admin@example.com", "role": "admin"
+        }):
+            response = app.test_client().get("/api/password-policy/status")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.get_json()["exempt"])
+        self.assertFalse(response.get_json()["enabled"])
+        self.assertFalse(response.get_json()["expired"])
+
     def test_password_history_detects_recent_password(self):
         history = build_password_history(
             "NewPassword@123",

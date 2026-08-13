@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#0f172a">
     <title>Quản trị — QL Online</title>
 
-    <link rel="stylesheet" href="/static/css/admin.css?v=15">
+    <link rel="stylesheet" href="/static/css/admin.css?v=16">
     <link rel="stylesheet" href="/static/css/portal-shell.css?v=11">
     <script defer src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
 </head>
@@ -410,7 +410,7 @@
             <div class="section-header">
                 <div>
                     <h2>Chính sách mật khẩu</h2>
-                    <p>Quy định thời hạn và số mật khẩu gần nhất không được phép sử dụng lại.</p>
+                    <p>Quy định thời hạn và Password History Value cho tài khoản sinh viên, giáo viên.</p>
                 </div>
             </div>
             <form id="password-policy-form" class="security-policy-card">
@@ -431,14 +431,14 @@
                     <label>Giây
                         <input id="password-age-seconds" type="number" min="0" max="59" step="1" required>
                     </label>
-                    <label>Số mật khẩu ghi nhớ
+                    <label>Password History Value
                         <input id="password-history-count" type="number" min="0" max="24" step="1" required>
-                        <small>0 để tắt; tối đa 24 mật khẩu gần nhất.</small>
+                        <small>Số mật khẩu gần nhất không được tái sử dụng, tối đa 24.</small>
                     </label>
                 </div>
                 <p class="form-error" id="password-policy-error" role="alert"></p>
                 <div class="security-policy-actions">
-                    <button class="primary-button" id="save-password-policy" type="submit">Lưu chính sách</button>
+                    <button class="primary-button policy-save-button" id="save-password-policy" type="submit">Lưu chính sách</button>
                 </div>
             </form>
         </section>
@@ -1091,9 +1091,9 @@
 
 
 <script type="module" src="/static/js/admin-firebase.js"></script>
-<script type="module" src="/static/js/admin.js?v=21"></script>
+<script type="module" src="/static/js/admin.js?v=22"></script>
 <script type="module" src="/static/js/admin-dashboard.js?v=5"></script>
-<script type="module" src="/static/js/portal-shell.js?v=14"></script>
+<script type="module" src="/static/js/portal-shell.js?v=15"></script>
 
 
 </body>

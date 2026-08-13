@@ -878,15 +878,13 @@ async function handleComposeNotification(event) {
 }
 
 
-function requirePasswordChange(policyStatus) {
-    passwordChangeRequired = true;
-    const modal = document.getElementById("portal-password-modal");
-    modal.classList.add("portal-password-required");
-    document.getElementById("portal-password-title").textContent = "Mật khẩu đã hết hạn";
-    document.getElementById("portal-password-policy-note").textContent =
-        "Chính sách của nhà trường yêu cầu bạn đổi mật khẩu trước khi tiếp tục sử dụng hệ thống.";
-    openModal("portal-password-modal");
-    document.getElementById("portal-current-password")?.focus();
+async function logoutBecausePasswordExpired() {
+    const email = currentUser?.email || "";
+    window.clearTimeout(passwordPolicyTimer);
+    notificationAbortController?.abort();
+    window.sessionStorage.setItem("ql-online-expired-password-email", email);
+    await signOut(auth).catch(() => {});
+    window.location.replace("/?passwordExpired=1");
 }
 
 
@@ -895,9 +893,9 @@ async function checkPasswordPolicy() {
     if (!currentUser) return;
     try {
         const status = await fetchAdminApi("/api/password-policy/status");
+        if (status.exempt) return;
         if (status.expired) {
-            requirePasswordChange(status);
-            passwordPolicyTimer = window.setTimeout(checkPasswordPolicy, 30000);
+            await logoutBecausePasswordExpired();
             return;
         }
         const warningKey = String(status.expiresAtMillis || "");

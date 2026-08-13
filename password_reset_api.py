@@ -403,6 +403,8 @@ def complete_password_reset():
         profile = profile_snapshot.to_dict() or {} if profile_snapshot.exists else {}
         policy_snapshot = database.collection("system_settings").document("password_policy").get()
         policy = normalize_password_policy(policy_snapshot.to_dict() if policy_snapshot.exists else {})
+        if str(profile.get("role") or "").strip().lower() == "admin":
+            policy = {**policy, "maxAgeSeconds": 0, "historyCount": 0}
         history = list(profile.get("passwordHistory") or [])
         enforced_history = history[:policy["historyCount"]]
         if password_matches_history(password, enforced_history):
