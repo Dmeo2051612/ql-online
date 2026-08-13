@@ -2602,7 +2602,13 @@ function traLoiTroLy(cauHoiGoc) {
         && (/\b(con|the con)\s+thu\b.*\bthi sao\b|\bgio van (vay|the)\b|\bcung (gio|khung gio)\b|\bkhung gio (cu|do|nay)\b/.test(cauHoi)
             || (Boolean(thuTrongCau) && !khoangGioTrongCau && /\b(con|thi sao|van vay|van the)\b/.test(cauHoi)));
     const laYeuCauLocLop = /\b(loc|tim|xem|tra|chon|goi y)\b.*\b(lop|mon)\b|\b(lop|mon)\b.*\b(loc|tim|xem|tra|chon)\b|cho toi (?:danh sach )?(?:cac )?(?:lop|mon)/.test(cauHoi);
-    const laCauHoiTraCuu = laYeuCauLocLop || laCauHoiNoiTiepLich
+    const coDieuKienLoc = Boolean(hocKyVaNamHocTrongCau.hocKy || hocKyVaNamHocTrongCau.namHoc
+        || thuTrongCau || khoangGioTrongCau);
+    const coLenhSuaLichRoRang = /\b(them|bo|xoa|doi sang|thay bang|bat buoc|phai co|uu tien)\b/.test(cauHoi);
+    const laTraCuuRutGonTheoDoiTuong = coDieuKienLoc
+        && (monDuocNhac.length > 0 || giaoVienDuocNhac.length > 0)
+        && !coLenhSuaLichRoRang;
+    const laCauHoiTraCuu = laYeuCauLocLop || laCauHoiNoiTiepLich || laTraCuuRutGonTheoDoiTuong
         || /ai day|giao vien nao|thay co nao|day mon gi|lop cua|mon cua|co lop nao|con cho|sap day|han dang ky|da dang ky|dang ky duoc|may gio|thu may|khi nao|xem lich|xem thoi khoa bieu|lich hien tai|lich cua toi|thoi khoa bieu hien tai|thoi khoa bieu cua toi|tuan nay/.test(cauHoi);
     const laYeuCauLapLich = /(?:lap|xep|sap xep|sap|tao|len|dung|thiet ke|soan|lam).*\b(?:thoi khoa bieu|lich hoc|lich mon|lich)\b/.test(cauHoi)
         || /(?:thoi khoa bieu|lich hoc|lich mon).*(?:cho toi|giup toi|phu hop|xep|tao|lam)/.test(cauHoi)
@@ -2656,7 +2662,8 @@ function traLoiTroLy(cauHoiGoc) {
         });
     }
 
-    if (laYeuCauLocLop && (monDuocNhac.length || giaoVienDuocNhac.length)) {
+    if ((laYeuCauLocLop || laTraCuuRutGonTheoDoiTuong)
+        && (monDuocNhac.length || giaoVienDuocNhac.length)) {
         const cacMaMon = new Set(monDuocNhac.map(({ lop }) => String(lop.mamon || "").trim()));
         const cacMaGiaoVien = new Set(giaoVienDuocNhac.map(({ lop }) => String(lop.magv || "").trim()));
         const { hocKy, namHoc } = docHocKyVaNamHoc(cauHoi);
@@ -2674,7 +2681,11 @@ function traLoiTroLy(cauHoiGoc) {
         if (!cacLop.length) {
             return "Mình không tìm thấy lớp còn nhận đăng ký đáp ứng đúng các điều kiện lọc đó.";
         }
-        return `<p>Mình tìm thấy ${cacLop.length} lớp đúng yêu cầu:</p>${cacLop.slice(0, 8).map(taoTheGoiYLop).join("")}`;
+        const doiTuong = giaoVienDuocNhac.length
+            ? giaoVienDuocNhac[0].lop.tengiaovien
+            : monDuocNhac[0].lop.tenmon;
+        const nhanHocKy = hocKy ? ` trong học kỳ ${hocKy}` : "";
+        return `<p>Mình tìm thấy ${cacLop.length} lớp của ${chuyenThanhVanBanAnToan(doiTuong)}${nhanHocKy}:</p>${cacLop.slice(0, 8).map(taoTheGoiYLop).join("")}`;
     }
 
     if (monDuocNhac.length && cauHoi.includes("tin chi")) {

@@ -40,6 +40,7 @@ const thuNgayMai = ngayMai.getDay() === 0 ? 8 : ngayMai.getDay() + 1;
 danhSachMonDaDangKy = [{ mamon: "OLD", tenmon: "Môn đã học", malopmon: "OLD1", magv: "GV9", tengiaovien: "Cô Mai", hocky: 2, namhoc: 2026, thu: thuNgayMai, giobatdau: "10:00", gioketthuc: "11:00", sotinchi: 2, ngaybatdauhoc: "2020-01-01", ngayketthuchoc: "2030-12-31" }];
 danhSachLopMonCoTheDangKy = [
  { mamon: "OS", tenmon: "Hệ điều hành", malopmon: "LM002", magv: "GV1", tengiaovien: "Thầy Hoàng", hocky: 2, namhoc: 2026, thu: 2, giobatdau: "07:00", gioketthuc: "09:30", sotinchi: 3, sisotoida: 40, sisodadangky: 10 },
+ { mamon: "OS", tenmon: "Hệ điều hành", malopmon: "LM007", magv: "GV1", tengiaovien: "Thầy Hoàng", hocky: 1, namhoc: 2026, thu: 2, giobatdau: "07:00", gioketthuc: "09:30", sotinchi: 3, sisotoida: 40, sisodadangky: 0 },
  { mamon: "SEC", tenmon: "An toàn thông tin", malopmon: "LM001", magv: "GV2", tengiaovien: "Cô Vân", hocky: 2, namhoc: 2026, thu: 3, giobatdau: "07:00", gioketthuc: "09:30", sotinchi: 3, sisotoida: 40, sisodadangky: 10 },
  { mamon: "WEB", tenmon: "Lập trình Web", malopmon: "LM004", magv: "GV3", tengiaovien: "Cô Hồng", hocky: 2, namhoc: 2026, thu: 4, giobatdau: "14:00", gioketthuc: "16:00", sotinchi: 3, sisotoida: 40, sisodadangky: 10 }
 ];
@@ -72,7 +73,10 @@ aiNguCanh.dangLapThoiKhoaBieu = true;
 aiNguCanh.yeuCauLapLich = "lap thoi khoa bieu truoc do";
 assertAnswer("sáng thứ 2 từ 7 giờ tới 10 giờ sáng", ["LM002", "Thứ 2", "07:00–10:00"], ["LM001", "Phương án"]);
 assertAnswer("còn thứ 3 thì sao, giờ vẫn vậy", ["LM001", "Thứ 3", "07:00–10:00"], ["LM002", "Phương án"]);
-console.log("STUDENT_AI_INTENTS_OK: 17 scenarios");
+aiNguCanh.dangLapThoiKhoaBieu = true;
+aiNguCanh.yeuCauLapLich = "lap thoi khoa bieu hoc ky 1";
+assertAnswer("thầy hoàng học kì 2", ["LM002", "học kỳ 2"], ["LM007", "Phương án"]);
+console.log("STUDENT_AI_INTENTS_OK: 18 scenarios");
 `;
 
 vm.runInNewContext(fs.readFileSync("static/js/sinh_vien.js", "utf8") + testCode, context);
