@@ -59,6 +59,9 @@ assertAnswer("môn đó còn slot không?", ["LM002"], ["LM001"]);
 assertAnswer("ai dạy môn đó?", ["Thầy Hoàng"], ["Cô Vân"]);
 assertAnswer("tra cứu lớp của cô Vân", ["LM001"], ["LM002"]);
 assertAnswer("cô đó dạy môn gì", ["LM001"], ["LM002"]);
+assertAnswer("thầy hoàng đang dạy môn gì", ["LM002", "LM007"], ["LM001"]);
+assertAnswer("còn vân thì sao", ["LM001", "Cô Vân"], ["LM002", "LM007"]);
+assertAnswer("thế cô hồng?", ["LM004", "Cô Hồng"], ["LM001", "LM002"]);
 assertAnswer("tôi đăng kí mấy môn rồi", ["1 môn", "2 tín chỉ"]);
 assertAnswer("mai tôi học gì", ["OLD1"]);
 aiNguCanh.dangLapThoiKhoaBieu = false; aiNguCanh.yeuCauLapLich = "";
@@ -94,7 +97,7 @@ locVaSapXepLopMon();
 if (availableCourseBody.innerHTML.includes("LM007") || !availableCourseBody.innerHTML.includes("LM002")) {
     throw new Error("Bộ lọc Học kỳ 2 hiển thị sai lớp môn");
 }
-console.log("STUDENT_AI_INTENTS_OK: 20 scenarios");
+console.log("STUDENT_AI_INTENTS_OK: 23 scenarios");
 `;
 
 vm.runInNewContext(fs.readFileSync("static/js/sinh_vien.js", "utf8") + testCode, context);

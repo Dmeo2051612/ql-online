@@ -2294,7 +2294,8 @@ function layCacMonDuocNhac(cauHoi) {
         }, Infinity);
         const viTri = Math.min(viTriNhan, viTriTu);
         return { lop, viTri };
-    }).filter((muc) => Number.isFinite(muc.viTri));
+    }).filter((muc) => Number.isFinite(muc.viTri))
+        .sort((a, b) => a.viTri - b.viTri);
 }
 
 function layCacGiaoVienDuocNhac(cauHoi) {
@@ -2324,7 +2325,8 @@ function layCacGiaoVienDuocNhac(cauHoi) {
         }, Infinity) : Infinity;
         const viTri = Math.min(viTriNhan, viTriTu);
         return { lop, viTri };
-    }).filter((muc) => Number.isFinite(muc.viTri));
+    }).filter((muc) => Number.isFinite(muc.viTri))
+        .sort((a, b) => a.viTri - b.viTri);
 }
 
 function lopMonCoLichDayDu(lop) {
@@ -2565,7 +2567,13 @@ function traLoiTroLy(cauHoiGoc) {
     const cauHoi = chuanHoaCauHoiAI(cauHoiGoc);
     const tongTinChi = danhSachMonDaDangKy.reduce((tong, lop) => tong + Number(lop.sotinchi || 0), 0);
     let monDuocNhac = layCacMonDuocNhac(cauHoi);
-    let giaoVienDuocNhac = layCacGiaoVienDuocNhac(cauHoi);
+    const laCauHoiNoiTiepGiaoVien = Boolean(aiNguCanh.maGiaoVienGanNhat)
+        && !/\bthu\s*[2-8]\b/.test(cauHoi)
+        && (/\b(con|the con|the|vay con)\b/.test(cauHoi)
+            || /\b(co|thay|giao vien)\b.*\b(thi sao|the nao)\b/.test(cauHoi));
+    let giaoVienDuocNhac = layCacGiaoVienDuocNhac(
+        laCauHoiNoiTiepGiaoVien ? `${cauHoi} giang vien` : cauHoi
+    );
     const tatCaLop = [...danhSachLopMonCoTheDangKy, ...danhSachMonDaDangKy];
     const dangNhacMonTruoc = /\b(mon|lop)\s*(do|nay|vua roi)\b|\bno\b/.test(cauHoi);
     const dangNhacGiaoVienTruoc = /\b(thay|co|giao vien)\s*(do|nay|vua roi)\b/.test(cauHoi);
@@ -2593,7 +2601,7 @@ function traLoiTroLy(cauHoiGoc) {
     const laTraCuuRutGonTheoDoiTuong = coDieuKienLoc
         && (monDuocNhac.length > 0 || giaoVienDuocNhac.length > 0)
         && !coLenhSuaLichRoRang;
-    const laCauHoiTraCuu = laYeuCauLocLop || laCauHoiNoiTiepLich || laTraCuuRutGonTheoDoiTuong
+    const laCauHoiTraCuu = laYeuCauLocLop || laCauHoiNoiTiepLich || laCauHoiNoiTiepGiaoVien || laTraCuuRutGonTheoDoiTuong
         || /ai day|giao vien nao|thay co nao|day mon gi|lop cua|mon cua|co lop nao|con cho|sap day|han dang ky|da dang ky|dang ky duoc|may gio|thu may|khi nao|xem lich|xem thoi khoa bieu|lich hien tai|lich cua toi|thoi khoa bieu hien tai|thoi khoa bieu cua toi|tuan nay/.test(cauHoi);
     const laYeuCauLapLich = /(?:lap|xep|sap xep|sap|tao|len|dung|thiet ke|soan|lam).*\b(?:thoi khoa bieu|lich hoc|lich mon|lich)\b/.test(cauHoi)
         || /(?:thoi khoa bieu|lich hoc|lich mon).*(?:cho toi|giup toi|phu hop|xep|tao|lam)/.test(cauHoi)
