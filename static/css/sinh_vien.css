@@ -553,8 +553,10 @@ textarea {
 .ai-chat-toggle {
     position: fixed; right: 22px; bottom: 18px; z-index: 1200; width: 94px; height: 112px;
     padding: 0; color: #fff; background: transparent; border: 0;
-    cursor: pointer; isolation: isolate;
+    cursor: grab; isolation: isolate; touch-action: none; user-select: none;
 }
+.ai-chat-toggle.is-dragging { cursor: grabbing; }
+.ai-chat-toggle.is-dragging .ai-mascot { animation-play-state: paused; filter: drop-shadow(0 19px 17px rgba(37, 99, 235, .38)); }
 .ai-chat-toggle:focus-visible { outline: none; }
 .ai-chat-toggle:focus-visible .ai-mascot-head { box-shadow: 0 0 0 5px rgba(37, 99, 235, .2), inset 0 2px 0 rgba(255,255,255,.8); }
 .ai-mascot-label {
@@ -607,17 +609,12 @@ textarea {
 .ai-chat-header {
     display: flex; align-items: center; justify-content: space-between; padding: 15px 17px;
     color: #fff; background: linear-gradient(135deg, #1d4ed8, #6d28d9);
-    user-select: none;
 }
 .ai-chat-header > div { display: flex; align-items: center; gap: 10px; }
 .ai-chat-header > div > span { display: grid; place-items: center; width: 36px; height: 36px; background: rgba(255,255,255,.17); border-radius: 11px; }
 .ai-chat-header strong, .ai-chat-header small { display: block; }
 .ai-chat-header small { margin-top: 2px; color: #dbeafe; }
 .ai-chat-header button { color: #fff; background: transparent; border: 0; font-size: 26px; cursor: pointer; }
-.ai-chat-header { cursor: grab; touch-action: none; }
-.ai-chatbox.is-dragging { box-shadow: 0 0 0 3px rgba(34, 211, 238, .38), 0 24px 70px rgba(15, 23, 42, .28); transition: none; }
-.ai-chatbox.is-dragging .ai-chat-header { cursor: grabbing; }
-.ai-chat-header small { font-weight: 700; }
 .ai-chat-messages { overflow-y: auto; padding: 16px; background: #f8fafc; }
 .ai-message { max-width: 88%; margin-bottom: 11px; padding: 10px 12px; border-radius: 13px; line-height: 1.45; font-size: 14px; }
 .ai-message.assistant { color: #27364d; background: #fff; border: 1px solid #e2e8f0; border-bottom-left-radius: 4px; }
@@ -697,8 +694,7 @@ textarea {
     .calendar-note-form h3, .calendar-note-form input:last-of-type { grid-column: auto; }
     .ai-chat-toggle { right: 8px; bottom: 8px; transform: scale(.88); transform-origin: right bottom; }
     .ai-chatbox { right: 16px; bottom: 112px; height: min(570px, calc(100vh - 126px)); }
-    .ai-chatbox.is-dragging { box-shadow: 0 24px 70px rgba(15, 23, 42, .25); }
-    .ai-chatbox .ai-chat-header { cursor: default; touch-action: auto; }
+    .ai-chat-toggle { touch-action: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -2124,7 +2124,6 @@ const aiChatbox = document.getElementById("ai-chatbox");
 const aiChatMessages = document.getElementById("ai-chat-messages");
 const aiChatForm = document.getElementById("ai-chat-form");
 const aiChatInput = document.getElementById("ai-chat-input");
-const aiChatDragHandle = document.getElementById("ai-chat-drag-handle");
 let aiDaChao = false;
 const aiNguCanh = {
     dangLapThoiKhoaBieu: false,
@@ -3058,7 +3057,20 @@ function moTroLyAI() {
     aiChatInput?.focus();
 }
 
-aiChatToggle?.addEventListener("click", () => {
+let aiDangNhanRobot = false;
+let aiRobotDaKeo = false;
+let aiBoQuaLanBamRobot = false;
+let aiDiemBatDauRobotX = 0;
+let aiDiemBatDauRobotY = 0;
+let aiDoLechRobotX = 0;
+let aiDoLechRobotY = 0;
+
+aiChatToggle?.addEventListener("click", (suKien) => {
+    if (aiBoQuaLanBamRobot) {
+        aiBoQuaLanBamRobot = false;
+        suKien.preventDefault();
+        return;
+    }
     if (!aiChatbox?.hidden) {
         aiChatbox.hidden = true;
         aiChatToggle.setAttribute("aria-expanded", "false");
@@ -3071,18 +3083,14 @@ document.getElementById("ai-chat-close")?.addEventListener("click", () => {
     aiChatToggle?.setAttribute("aria-expanded", "false");
 });
 
-let aiDangDiChuyen = false;
-let aiDoLechKeoX = 0;
-let aiDoLechKeoY = 0;
-
-function layVungDiChuyenTroLy() {
+function layVungDiChuyenRobot() {
     const noiDungChinh = document.querySelector(".main-content");
     const sectionDangMo = document.querySelector(".student-section:not(.hidden-section)");
-    const khungTroLy = aiChatbox?.getBoundingClientRect();
+    const khungRobot = aiChatToggle?.getBoundingClientRect();
     const khungSection = sectionDangMo?.getBoundingClientRect();
-    if (khungSection && khungTroLy
-        && khungSection.width >= khungTroLy.width + 24
-        && Math.min(khungSection.bottom, window.innerHeight) - Math.max(khungSection.top, 0) >= khungTroLy.height + 24) {
+    if (khungSection && khungRobot
+        && khungSection.width >= khungRobot.width + 24
+        && Math.min(khungSection.bottom, window.innerHeight) - Math.max(khungSection.top, 0) >= khungRobot.height + 24) {
         return khungSection;
     }
     return noiDungChinh?.getBoundingClientRect() || {
@@ -3090,70 +3098,83 @@ function layVungDiChuyenTroLy() {
     };
 }
 
-function datViTriTroLyTrongPhamVi(x, y) {
-    if (!aiChatbox) return;
-    const khung = aiChatbox.getBoundingClientRect();
+function datViTriRobotTrongPhamVi(x, y) {
+    if (!aiChatToggle) return;
+    const khung = aiChatToggle.getBoundingClientRect();
     const viTri = gioiHanViTriTroLy(
-        x, y, khung.width, khung.height, layVungDiChuyenTroLy(), window.innerWidth, window.innerHeight
+        x, y, khung.width, khung.height, layVungDiChuyenRobot(), window.innerWidth, window.innerHeight
     );
-    aiChatbox.style.left = `${viTri.x}px`;
-    aiChatbox.style.top = `${viTri.y}px`;
-    aiChatbox.style.right = "auto";
-    aiChatbox.style.bottom = "auto";
+    aiChatToggle.style.left = `${viTri.x}px`;
+    aiChatToggle.style.top = `${viTri.y}px`;
+    aiChatToggle.style.right = "auto";
+    aiChatToggle.style.bottom = "auto";
 }
 
-function datLaiViTriTroLy() {
-    aiDangDiChuyen = false;
-    aiChatbox?.classList.remove("is-dragging");
-    aiChatbox?.style.removeProperty("left");
-    aiChatbox?.style.removeProperty("top");
-    aiChatbox?.style.removeProperty("right");
-    aiChatbox?.style.removeProperty("bottom");
+function datLaiViTriRobot() {
+    aiDangNhanRobot = false;
+    aiRobotDaKeo = false;
+    aiChatToggle?.classList.remove("is-dragging");
+    aiChatToggle?.style.removeProperty("left");
+    aiChatToggle?.style.removeProperty("top");
+    aiChatToggle?.style.removeProperty("right");
+    aiChatToggle?.style.removeProperty("bottom");
 }
 
-aiChatDragHandle?.addEventListener("dblclick", (suKien) => {
-    if (suKien.target.closest("button") || window.innerWidth <= 760) return;
+aiChatToggle?.addEventListener("dblclick", (suKien) => {
+    if (window.innerWidth <= 760) return;
     suKien.preventDefault();
-    datLaiViTriTroLy();
+    datLaiViTriRobot();
 });
 
-aiChatDragHandle?.addEventListener("pointerdown", (suKien) => {
-    if (window.innerWidth <= 760 || suKien.button !== 0 || suKien.target.closest("button")) return;
-    const khung = aiChatbox.getBoundingClientRect();
-    aiDangDiChuyen = true;
-    aiDoLechKeoX = suKien.clientX - khung.left;
-    aiDoLechKeoY = suKien.clientY - khung.top;
-    aiChatbox.classList.add("is-dragging");
-    aiChatDragHandle.setPointerCapture?.(suKien.pointerId);
-    suKien.preventDefault();
+aiChatToggle?.addEventListener("pointerdown", (suKien) => {
+    if (window.innerWidth <= 760 || suKien.button !== 0) return;
+    const khung = aiChatToggle.getBoundingClientRect();
+    aiDangNhanRobot = true;
+    aiRobotDaKeo = false;
+    aiDiemBatDauRobotX = suKien.clientX;
+    aiDiemBatDauRobotY = suKien.clientY;
+    aiDoLechRobotX = suKien.clientX - khung.left;
+    aiDoLechRobotY = suKien.clientY - khung.top;
+    aiChatToggle.setPointerCapture?.(suKien.pointerId);
 });
 
-aiChatDragHandle?.addEventListener("pointermove", (suKien) => {
-    if (!aiDangDiChuyen) return;
-    datViTriTroLyTrongPhamVi(suKien.clientX - aiDoLechKeoX, suKien.clientY - aiDoLechKeoY);
+aiChatToggle?.addEventListener("pointermove", (suKien) => {
+    if (!aiDangNhanRobot) return;
+    if (!aiRobotDaKeo && Math.hypot(
+        suKien.clientX - aiDiemBatDauRobotX, suKien.clientY - aiDiemBatDauRobotY
+    ) < 6) return;
+    aiRobotDaKeo = true;
+    aiChatToggle.classList.add("is-dragging");
+    datViTriRobotTrongPhamVi(suKien.clientX - aiDoLechRobotX, suKien.clientY - aiDoLechRobotY);
+    suKien.preventDefault?.();
 });
 
-function dungDiChuyenTroLy(suKien) {
-    if (!aiDangDiChuyen) return;
-    aiDangDiChuyen = false;
-    aiChatbox?.classList.remove("is-dragging");
-    if (suKien?.pointerId !== undefined) aiChatDragHandle?.releasePointerCapture?.(suKien.pointerId);
+function dungDiChuyenRobot(suKien) {
+    if (!aiDangNhanRobot) return;
+    aiDangNhanRobot = false;
+    if (aiRobotDaKeo) aiBoQuaLanBamRobot = true;
+    aiChatToggle?.classList.remove("is-dragging");
+    if (suKien?.pointerId !== undefined) aiChatToggle?.releasePointerCapture?.(suKien.pointerId);
 }
 
-aiChatDragHandle?.addEventListener("pointerup", dungDiChuyenTroLy);
-aiChatDragHandle?.addEventListener("pointercancel", dungDiChuyenTroLy);
-document.addEventListener("keydown", (suKien) => {
-    if (suKien.key === "Escape" && aiDangDiChuyen) dungDiChuyenTroLy();
-});
+aiChatToggle?.addEventListener("pointerup", dungDiChuyenRobot);
+aiChatToggle?.addEventListener("pointercancel", dungDiChuyenRobot);
 window.addEventListener("resize", () => {
     if (window.innerWidth <= 760) {
-        datLaiViTriTroLy();
+        datLaiViTriRobot();
         return;
     }
-    if (aiChatbox && aiChatbox.style.left) {
-        const khung = aiChatbox.getBoundingClientRect();
-        datViTriTroLyTrongPhamVi(khung.left, khung.top);
+    if (aiChatToggle && aiChatToggle.style.left) {
+        const khung = aiChatToggle.getBoundingClientRect();
+        datViTriRobotTrongPhamVi(khung.left, khung.top);
     }
+});
+window.addEventListener("hashchange", () => {
+    window.setTimeout(() => {
+        if (!aiChatToggle?.style.left) return;
+        const khung = aiChatToggle.getBoundingClientRect();
+        datViTriRobotTrongPhamVi(khung.left, khung.top);
+    }, 0);
 });
 
 aiChatForm?.addEventListener("submit", (suKien) => { suKien.preventDefault(); xuLyCauHoiAI(aiChatInput.value); });

@@ -191,20 +191,22 @@ const viTriTrongVung = gioiHanViTriTroLy(100, -30, 390, 590, { left: 325, top: 0
 if (viTriTrongVung.x !== 337 || viTriTrongVung.y !== 12) throw new Error("Chatbot không được giới hạn ở mép trái/trên của vùng nội dung");
 const viTriSatGoc = gioiHanViTriTroLy(2000, 2000, 390, 590, { left: 325, top: 0, right: 1440, bottom: 900 }, 1440, 900);
 if (viTriSatGoc.x !== 1038 || viTriSatGoc.y !== 298) throw new Error("Chatbot không được giới hạn ở mép phải/dưới của vùng nội dung");
-aiChatbox.getBoundingClientRect = () => ({
-    left: Number.parseFloat(aiChatbox.style.left) || 1022,
-    top: Number.parseFloat(aiChatbox.style.top) || 184,
-    right: (Number.parseFloat(aiChatbox.style.left) || 1022) + 390,
-    bottom: (Number.parseFloat(aiChatbox.style.top) || 184) + 590,
-    width: 390, height: 590
+aiChatToggle.getBoundingClientRect = () => ({
+    left: Number.parseFloat(aiChatToggle.style.left) || 1324,
+    top: Number.parseFloat(aiChatToggle.style.top) || 770,
+    right: (Number.parseFloat(aiChatToggle.style.left) || 1324) + 94,
+    bottom: (Number.parseFloat(aiChatToggle.style.top) || 770) + 112,
+    width: 94, height: 112
 });
 const mucTieuKeo = { closest() { return null; } };
-aiChatDragHandle.dispatchEvent({ type: "pointerdown", button: 0, clientX: 1100, clientY: 200, pointerId: 1, target: mucTieuKeo, preventDefault() {} });
-aiChatDragHandle.dispatchEvent({ type: "pointermove", clientX: 700, clientY: 300, pointerId: 1, target: mucTieuKeo });
-aiChatDragHandle.dispatchEvent({ type: "pointerup", pointerId: 1, target: mucTieuKeo });
-if (aiChatbox.style.left !== "622px" || aiChatbox.style.top !== "284px") throw new Error("Giữ chuột trên tiêu đề chưa kéo được chatbot trực tiếp");
-aiChatDragHandle.dispatchEvent({ type: "dblclick", target: mucTieuKeo, preventDefault() {} });
-if (aiChatbox.style.left || aiChatbox.style.top) throw new Error("Nháy đúp chưa đưa chatbot về vị trí mặc định");
+aiChatToggle.dispatchEvent({ type: "pointerdown", button: 0, clientX: 1360, clientY: 800, pointerId: 1, target: mucTieuKeo });
+aiChatToggle.dispatchEvent({ type: "pointermove", clientX: 700, clientY: 300, pointerId: 1, target: mucTieuKeo, preventDefault() {} });
+aiChatToggle.dispatchEvent({ type: "pointerup", pointerId: 1, target: mucTieuKeo });
+if (aiChatToggle.style.left !== "664px" || aiChatToggle.style.top !== "270px") throw new Error("Giữ chuột chưa kéo được nhân vật robot");
+aiChatToggle.dispatchEvent({ type: "click", target: mucTieuKeo, preventDefault() {} });
+if (!aiChatbox.hidden) throw new Error("Thả robot sau khi kéo đã vô tình mở chatbot");
+aiChatToggle.dispatchEvent({ type: "dblclick", target: mucTieuKeo, preventDefault() {} });
+if (aiChatToggle.style.left || aiChatToggle.style.top) throw new Error("Nháy đúp chưa đưa robot về vị trí mặc định");
 
 dienBoLocHocKy(danhSachLopMonCoTheDangKy);
 if (!availableSemesterFilter.innerHTML.includes('value="1"') || !availableSemesterFilter.innerHTML.includes('value="2"')) {
