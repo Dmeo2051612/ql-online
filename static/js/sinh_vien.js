@@ -2130,6 +2130,9 @@ const aiNguCanh = {
     yeuCauLapLich: "",
     maMonGanNhat: "",
     maGiaoVienGanNhat: "",
+    boLocDoiTuongGanNhat: {
+        maMon: "", maGiaoVien: "", hocKy: null, namHoc: null, thu: null, khoangGio: null
+    },
     traCuuGanNhat: null
 };
 
@@ -2161,8 +2164,12 @@ function chuanHoaCauHoiAI(giaTri) {
         [/\bhoc ky\s*(hai|ii)\b/g, "hoc ky 2"],
         [/\bhoc ky\s*(ba|iii)\b/g, "hoc ky 3"],
         [/\b(con slot|con suat|chua day|chua kin)\b/g, "con cho"],
-        [/\b(dung gio|dung lich|trung gio|chong lich)\b/g, "trung lich"],
-        [/\b(giang day|phu trach)\b/g, "day"],
+        [/\b(con bao nhieu cho|con may cho|con may slot|full chua|day chua|het cho chua)\b/g, "con cho"],
+        [/\b(dung gio|dung lich|trung gio|chong gio|chong lich|va lich)\b/g, "trung lich"],
+        [/\b(giang day|phu trach|dung lop|day lop)\b/g, "day"],
+        [/\b(bua nay|bay gio)\b/g, "hom nay"],
+        [/\b(schedule)\b/g, "thoi khoa bieu"],
+        [/\b(credit|credits)\b/g, "tin chi"],
         [/\bbao nhieu credit\b/g, "bao nhieu tin chi"],
         [/\bmay\s+(mon|lop)\b/g, "bao nhieu $1"],
         [/\bmay\s+tin chi\b/g, "bao nhieu tin chi"],
@@ -2309,7 +2316,7 @@ function layCacGiaoVienDuocNhac(cauHoi) {
         if (maGiaoVien && !danhMuc.has(maGiaoVien)) danhMuc.set(maGiaoVien, lop);
     });
 
-    return [...danhMuc.values()].map((lop) => {
+    const ketQua = [...danhMuc.values()].map((lop) => {
         const cacNhan = [lop.tengiaovien, lop.magv]
             .map(chuanHoaTimKiem)
             .filter((nhan) => nhan.length >= 2);
@@ -2319,14 +2326,22 @@ function layCacGiaoVienDuocNhac(cauHoi) {
             const ketQua = cauHoi.indexOf(nhan);
             return ketQua >= 0 ? Math.min(ganNhat, ketQua) : ganNhat;
         }, Infinity);
-        const viTriTu = dangHoiGiaoVien ? cacTuTrongTen.reduce((ganNhat, tu) => {
-            const tuKhop = tapTuTrongCau.has(tu) ? tu : timTuGanDung(tu, cacTuTrongCau);
-            return tuKhop ? Math.min(ganNhat, cauHoi.indexOf(tuKhop)) : ganNhat;
-        }, Infinity) : Infinity;
-        const viTri = Math.min(viTriNhan, viTriTu);
-        return { lop, viTri };
-    }).filter((muc) => Number.isFinite(muc.viTri))
-        .sort((a, b) => a.viTri - b.viTri);
+        const tuKhopChinhXac = dangHoiGiaoVien
+            ? cacTuTrongTen.find((tu) => tapTuTrongCau.has(tu))
+            : null;
+        const viTriTuChinhXac = tuKhopChinhXac ? cauHoi.indexOf(tuKhopChinhXac) : Infinity;
+        const tuKhopGanDung = dangHoiGiaoVien && !tuKhopChinhXac
+            ? cacTuTrongTen.map((tu) => timTuGanDung(tu, cacTuTrongCau)).find(Boolean)
+            : null;
+        const viTriTuGanDung = tuKhopGanDung ? cauHoi.indexOf(tuKhopGanDung) : Infinity;
+        const viTri = Math.min(viTriNhan, viTriTuChinhXac, viTriTuGanDung);
+        const mucDoKhop = Number.isFinite(viTriNhan) ? 0 : Number.isFinite(viTriTuChinhXac) ? 1 : 2;
+        return { lop, viTri, mucDoKhop };
+    }).filter((muc) => Number.isFinite(muc.viTri));
+    const coKetQuaChinhXac = ketQua.some((muc) => muc.mucDoKhop < 2);
+    return ketQua
+        .filter((muc) => !coKetQuaChinhXac || muc.mucDoKhop < 2)
+        .sort((a, b) => a.mucDoKhop - b.mucDoKhop || a.viTri - b.viTri);
 }
 
 function lopMonCoLichDayDu(lop) {
@@ -2567,13 +2582,17 @@ function traLoiTroLy(cauHoiGoc) {
     const cauHoi = chuanHoaCauHoiAI(cauHoiGoc);
     const tongTinChi = danhSachMonDaDangKy.reduce((tong, lop) => tong + Number(lop.sotinchi || 0), 0);
     let monDuocNhac = layCacMonDuocNhac(cauHoi);
+    const monMoiDuocNhac = monDuocNhac.length > 0;
+    const coDauHieuNoiTiepDoiTuong = /^(con|the|vay|vay con|neu la|doi sang|chuyen sang|hoc ky|thu|t[2-7]|buoi|ca|luc|tu)\b/.test(cauHoi)
+        || /\b(thi sao|the nao|van vay|van the|con cho|sap day)\b/.test(cauHoi);
     const laCauHoiNoiTiepGiaoVien = Boolean(aiNguCanh.maGiaoVienGanNhat)
         && !/\bthu\s*[2-8]\b/.test(cauHoi)
-        && (/\b(con|the con|the|vay con)\b/.test(cauHoi)
+        && (coDauHieuNoiTiepDoiTuong
             || /\b(co|thay|giao vien)\b.*\b(thi sao|the nao)\b/.test(cauHoi));
     let giaoVienDuocNhac = layCacGiaoVienDuocNhac(
         laCauHoiNoiTiepGiaoVien ? `${cauHoi} giang vien` : cauHoi
     );
+    const giaoVienMoiDuocNhac = giaoVienDuocNhac.length > 0;
     const tatCaLop = [...danhSachLopMonCoTheDangKy, ...danhSachMonDaDangKy];
     const dangNhacMonTruoc = /\b(mon|lop)\s*(do|nay|vua roi)\b|\bno\b/.test(cauHoi);
     const dangNhacGiaoVienTruoc = /\b(thay|co|giao vien)\s*(do|nay|vua roi)\b/.test(cauHoi);
@@ -2585,12 +2604,45 @@ function traLoiTroLy(cauHoiGoc) {
         const lop = tatCaLop.find((muc) => String(muc.magv || "").trim() === aiNguCanh.maGiaoVienGanNhat);
         if (lop) giaoVienDuocNhac = [{ lop, viTri: 0 }];
     }
+    if (!monDuocNhac.length && !giaoVienDuocNhac.length && coDauHieuNoiTiepDoiTuong) {
+        const boLocTruoc = aiNguCanh.boLocDoiTuongGanNhat || {};
+        const lopTheoMon = tatCaLop.find((muc) => String(muc.mamon || "").trim() === boLocTruoc.maMon);
+        const lopTheoGiaoVien = tatCaLop.find((muc) => String(muc.magv || "").trim() === boLocTruoc.maGiaoVien);
+        if (lopTheoMon) monDuocNhac = [{ lop: lopTheoMon, viTri: 0 }];
+        if (lopTheoGiaoVien) giaoVienDuocNhac = [{ lop: lopTheoGiaoVien, viTri: 0 }];
+    }
     if (monDuocNhac.length) aiNguCanh.maMonGanNhat = String(monDuocNhac[0].lop.mamon || "").trim();
     if (giaoVienDuocNhac.length) aiNguCanh.maGiaoVienGanNhat = String(giaoVienDuocNhac[0].lop.magv || "").trim();
+    if (monMoiDuocNhac || giaoVienMoiDuocNhac) {
+        aiNguCanh.boLocDoiTuongGanNhat = {
+            maMon: monMoiDuocNhac ? String(monDuocNhac[0]?.lop.mamon || "").trim() : "",
+            maGiaoVien: giaoVienMoiDuocNhac ? String(giaoVienDuocNhac[0]?.lop.magv || "").trim() : "",
+            hocKy: null,
+            namHoc: null,
+            thu: null,
+            khoangGio: null
+        };
+        aiNguCanh.traCuuGanNhat = null;
+    }
 
     const thuTrongCau = docThu(cauHoi);
     const khoangGioTrongCau = docKhoangGio(cauHoi);
     const hocKyVaNamHocTrongCau = docHocKyVaNamHoc(cauHoi);
+    const boLocDoiTuong = aiNguCanh.boLocDoiTuongGanNhat || {};
+    const dungDieuKienTruoc = coDauHieuNoiTiepDoiTuong && !monMoiDuocNhac && !giaoVienMoiDuocNhac;
+    const hocKyLoc = hocKyVaNamHocTrongCau.hocKy || (dungDieuKienTruoc ? boLocDoiTuong.hocKy : null);
+    const namHocLoc = hocKyVaNamHocTrongCau.namHoc || (dungDieuKienTruoc ? boLocDoiTuong.namHoc : null);
+    const thuLoc = thuTrongCau || (dungDieuKienTruoc ? boLocDoiTuong.thu : null);
+    const khoangGioLoc = khoangGioTrongCau || (dungDieuKienTruoc ? boLocDoiTuong.khoangGio : null);
+    if (hocKyVaNamHocTrongCau.hocKy || hocKyVaNamHocTrongCau.namHoc || thuTrongCau || khoangGioTrongCau) {
+        aiNguCanh.boLocDoiTuongGanNhat = {
+            ...boLocDoiTuong,
+            hocKy: hocKyVaNamHocTrongCau.hocKy || boLocDoiTuong.hocKy || null,
+            namHoc: hocKyVaNamHocTrongCau.namHoc || boLocDoiTuong.namHoc || null,
+            thu: thuTrongCau || boLocDoiTuong.thu || null,
+            khoangGio: khoangGioTrongCau || boLocDoiTuong.khoangGio || null
+        };
+    }
     const laCauHoiNoiTiepLich = Boolean(aiNguCanh.traCuuGanNhat)
         && (/\b(con|the con)\s+thu\b.*\bthi sao\b|\bgio van (vay|the)\b|\bcung (gio|khung gio)\b|\bkhung gio (cu|do|nay)\b/.test(cauHoi)
             || (Boolean(thuTrongCau) && !khoangGioTrongCau && /\b(con|thi sao|van vay|van the)\b/.test(cauHoi)));
@@ -2602,7 +2654,7 @@ function traLoiTroLy(cauHoiGoc) {
         && (monDuocNhac.length > 0 || giaoVienDuocNhac.length > 0)
         && !coLenhSuaLichRoRang;
     const laCauHoiTraCuu = laYeuCauLocLop || laCauHoiNoiTiepLich || laCauHoiNoiTiepGiaoVien || laTraCuuRutGonTheoDoiTuong
-        || /ai day|giao vien nao|thay co nao|day mon gi|lop cua|mon cua|co lop nao|con cho|sap day|han dang ky|da dang ky|dang ky duoc|may gio|thu may|khi nao|xem lich|xem thoi khoa bieu|lich hien tai|lich cua toi|thoi khoa bieu hien tai|thoi khoa bieu cua toi|tuan nay/.test(cauHoi);
+        || /ai day|do ai day|giao vien nao|thay co nao|day (mon|lop)? ?gi|day (mon|lop) nao|lop cua|mon cua|co lop nao|con cho|sap day|han dang ky|da dang ky|dang ky duoc|may gio|gio nao|ca nao|buoi nao|thu may|khi nao|hoc luc nao|xem lich|xem thoi khoa bieu|lich hien tai|lich cua toi|thoi khoa bieu hien tai|thoi khoa bieu cua toi|tuan nay/.test(cauHoi);
     const laYeuCauLapLich = /(?:lap|xep|sap xep|sap|tao|len|dung|thiet ke|soan|lam).*\b(?:thoi khoa bieu|lich hoc|lich mon|lich)\b/.test(cauHoi)
         || /(?:thoi khoa bieu|lich hoc|lich mon).*(?:cho toi|giup toi|phu hop|xep|tao|lam)/.test(cauHoi)
         || /(?:chon|goi y).*\b\d{1,2}\s*(?:mon|lop)\b/.test(cauHoi)
@@ -2614,6 +2666,9 @@ function traLoiTroLy(cauHoiGoc) {
         aiNguCanh.yeuCauLapLich = "";
         aiNguCanh.maMonGanNhat = "";
         aiNguCanh.maGiaoVienGanNhat = "";
+        aiNguCanh.boLocDoiTuongGanNhat = {
+            maMon: "", maGiaoVien: "", hocKy: null, namHoc: null, thu: null, khoangGio: null
+        };
         aiNguCanh.traCuuGanNhat = null;
         return "Mình đã xóa các điều kiện xếp lịch trước đó. Bạn hãy gửi một yêu cầu thời khóa biểu mới.";
     }
@@ -2655,21 +2710,34 @@ function traLoiTroLy(cauHoiGoc) {
         });
     }
 
+    const cacGiaoVienKhacNhau = [...new Map(
+        giaoVienDuocNhac.map((muc) => [String(muc.lop.magv || "").trim(), muc.lop])
+    ).values()];
+    if (/\b(so sanh|doi chieu|khac nhau|chon giua)\b/.test(cauHoi) && cacGiaoVienKhacNhau.length >= 2) {
+        return `<p>So sánh các lớp đang mở theo giảng viên:</p>${cacGiaoVienKhacNhau.map((giaoVien) => {
+            const cacLop = danhSachLopMonCoTheDangKy.filter((lop) => String(lop.magv || "").trim() === String(giaoVien.magv || "").trim()
+                && (!hocKyLoc || Number(lop.hocky) === hocKyLoc)
+                && (!namHocLoc || Number(lop.namhoc) === namHocLoc)
+                && (!thuLoc || Number(lop.thu) === thuLoc)
+                && (!khoangGioLoc || (phutTuGio(lop.giobatdau) >= khoangGioLoc.batDau
+                    && phutTuGio(lop.gioketthuc) <= khoangGioLoc.ketThuc)));
+            const tongChoTrong = cacLop.reduce((tong, lop) => tong + Math.max(0, Number(lop.sisotoida || 0) - Number(lop.sisodadangky || 0)), 0);
+            return `<section class="ai-schedule-option"><strong>${chuyenThanhVanBanAnToan(giaoVien.tengiaovien)}</strong><small>${cacLop.length} lớp đang mở · tổng ${tongChoTrong} chỗ trống</small>${cacLop.slice(0, 3).map(taoTheGoiYLop).join("")}</section>`;
+        }).join("")}`;
+    }
+
     if ((laYeuCauLocLop || laTraCuuRutGonTheoDoiTuong)
         && (monDuocNhac.length || giaoVienDuocNhac.length)) {
         const cacMaMon = new Set(monDuocNhac.map(({ lop }) => String(lop.mamon || "").trim()));
         const cacMaGiaoVien = new Set(giaoVienDuocNhac.map(({ lop }) => String(lop.magv || "").trim()));
-        const { hocKy, namHoc } = docHocKyVaNamHoc(cauHoi);
-        const thu = docThu(cauHoi);
-        const khoangGio = docKhoangGio(cauHoi);
         const cacLop = danhSachLopMonCoTheDangKy.filter((lop) => (!cacMaMon.size
             || cacMaMon.has(String(lop.mamon || "").trim()))
             && (!cacMaGiaoVien.size || cacMaGiaoVien.has(String(lop.magv || "").trim()))
-            && (!hocKy || Number(lop.hocky) === hocKy)
-            && (!namHoc || Number(lop.namhoc) === namHoc)
-            && (!thu || Number(lop.thu) === thu)
-            && (!khoangGio || (phutTuGio(lop.giobatdau) >= khoangGio.batDau
-                && phutTuGio(lop.gioketthuc) <= khoangGio.ketThuc)))
+            && (!hocKyLoc || Number(lop.hocky) === hocKyLoc)
+            && (!namHocLoc || Number(lop.namhoc) === namHocLoc)
+            && (!thuLoc || Number(lop.thu) === thuLoc)
+            && (!khoangGioLoc || (phutTuGio(lop.giobatdau) >= khoangGioLoc.batDau
+                && phutTuGio(lop.gioketthuc) <= khoangGioLoc.ketThuc)))
             .sort((a, b) => diemUuTienLop(b) - diemUuTienLop(a));
         if (!cacLop.length) {
             return "Mình không tìm thấy lớp còn nhận đăng ký đáp ứng đúng các điều kiện lọc đó.";
@@ -2677,7 +2745,7 @@ function traLoiTroLy(cauHoiGoc) {
         const doiTuong = giaoVienDuocNhac.length
             ? giaoVienDuocNhac[0].lop.tengiaovien
             : monDuocNhac[0].lop.tenmon;
-        const nhanHocKy = hocKy ? ` trong học kỳ ${hocKy}` : "";
+        const nhanHocKy = hocKyLoc ? ` trong học kỳ ${hocKyLoc}` : "";
         return `<p>Mình tìm thấy ${cacLop.length} lớp của ${chuyenThanhVanBanAnToan(doiTuong)}${nhanHocKy}:</p>${cacLop.slice(0, 8).map(taoTheGoiYLop).join("")}`;
     }
 
@@ -2686,7 +2754,7 @@ function traLoiTroLy(cauHoiGoc) {
         return `Môn ${lop.tenmon} có ${Number(lop.sotinchi || 0)} tín chỉ.`;
     }
 
-    if (monDuocNhac.length && /may gio|thu may|khi nao|lich mon|lich lop|hoc luc nao/.test(cauHoi)) {
+    if (monDuocNhac.length && /may gio|gio nao|ca nao|buoi nao|thu may|khi nao|lich mon|lich lop|hoc luc nao/.test(cauHoi)) {
         const maMon = String(monDuocNhac[0].lop.mamon || "").trim();
         const cacLop = tatCaLop.filter((lop) => String(lop.mamon || "").trim() === maMon);
         if (!cacLop.length) return `Mình chưa có dữ liệu lịch học của môn ${monDuocNhac[0].lop.tenmon}.`;
@@ -2708,7 +2776,7 @@ function traLoiTroLy(cauHoiGoc) {
             .map(taoTheGoiYLop).join("")}`;
     }
 
-    if (/nen hoc gi|chon mon nao|goi y mon/.test(cauHoi)) {
+    if (/nen hoc gi|chon mon nao|goi y mon|mon nao.*khong trung|mon phu hop/.test(cauHoi)) {
         const maMonDaDangKy = new Set(danhSachMonDaDangKy.map((lop) => String(lop.mamon || "").trim()));
         const theoMon = new Map();
         danhSachLopMonCoTheDangKy.filter((lop) => !maMonDaDangKy.has(String(lop.mamon || "").trim())
@@ -2754,7 +2822,8 @@ function traLoiTroLy(cauHoiGoc) {
         return `<p>${nhanNgay} bạn có ${cacLop.length} lớp:</p>${cacLop.map(taoTheGoiYLop).join("")}`;
     }
 
-    if ((cauHoi.includes("da dang ky") || cauHoi.includes("dang hoc") || cauHoi.includes("mon cua toi"))
+    if ((cauHoi.includes("da dang ky") || cauHoi.includes("dang hoc") || cauHoi.includes("mon cua toi")
+        || /dang ky.*chua|da hoc.*chua/.test(cauHoi))
         && !cauHoi.includes("bao nhieu")) {
         if (monDuocNhac.length) {
             const maMon = String(monDuocNhac[0].lop.mamon || "").trim();
@@ -2767,7 +2836,7 @@ function traLoiTroLy(cauHoiGoc) {
         return `<p>Bạn đã đăng ký ${danhSachMonDaDangKy.length} môn:</p>${danhSachMonDaDangKy.map(taoTheGoiYLop).join("")}`;
     }
 
-    if ((cauHoi.includes("ai day") || cauHoi.includes("giao vien nao") || cauHoi.includes("thay co nao"))
+    if ((cauHoi.includes("ai day") || cauHoi.includes("do ai day") || cauHoi.includes("giao vien nao") || cauHoi.includes("thay co nao"))
         && monDuocNhac.length) {
         const maMon = String(monDuocNhac[0].lop.mamon || "").trim();
         const cacLop = danhSachLopMonCoTheDangKy.filter((lop) => String(lop.mamon || "").trim() === maMon);
@@ -2776,7 +2845,7 @@ function traLoiTroLy(cauHoiGoc) {
         return `<p>Môn ${chuyenThanhVanBanAnToan(monDuocNhac[0].lop.tenmon)} hiện có ${cacGiaoVien.length} giảng viên:</p>${cacGiaoVien.map(taoTheGoiYLop).join("")}`;
     }
 
-    if ((cauHoi.includes("day mon gi") || cauHoi.includes("lop cua") || cauHoi.includes("mon cua") || cauHoi.includes("co lop nao"))
+    if ((/day (mon|lop)? ?gi|day (mon|lop) nao/.test(cauHoi) || cauHoi.includes("lop cua") || cauHoi.includes("mon cua") || cauHoi.includes("co lop nao"))
         && giaoVienDuocNhac.length) {
         const maGiaoVien = String(giaoVienDuocNhac[0].lop.magv || "").trim();
         const cacLop = danhSachLopMonCoTheDangKy.filter((lop) => String(lop.magv || "").trim() === maGiaoVien);
@@ -2795,6 +2864,11 @@ function traLoiTroLy(cauHoiGoc) {
             const maGiaoVien = String(giaoVienDuocNhac[0].lop.magv || "").trim();
             nguonLop = nguonLop.filter((lop) => String(lop.magv || "").trim() === maGiaoVien);
         }
+        nguonLop = nguonLop.filter((lop) => (!hocKyLoc || Number(lop.hocky) === hocKyLoc)
+            && (!namHocLoc || Number(lop.namhoc) === namHocLoc)
+            && (!thuLoc || Number(lop.thu) === thuLoc)
+            && (!khoangGioLoc || (phutTuGio(lop.giobatdau) >= khoangGioLoc.batDau
+                && phutTuGio(lop.gioketthuc) <= khoangGioLoc.ketThuc)));
         const cacLop = nguonLop
             .sort((a, b) => (Number(b.sisotoida) - Number(b.sisodadangky))
                 - (Number(a.sisotoida) - Number(a.sisodadangky)))
