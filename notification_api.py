@@ -839,6 +839,7 @@ def create_login_unlock_request():
 
 @notification_api_bp.get("/api/login-unlock-requests/<request_id>/status")
 def login_unlock_request_status(request_id):
+    get_firebase_auth()
     database = firestore.client()
     reference = database.collection("login_unlock_requests").document(request_id)
     snapshot = reference.get()
@@ -859,6 +860,7 @@ def latest_login_unlock_request_status():
     if not email or "@" not in email or len(email) > 254:
         return jsonify(error="Email không hợp lệ."), 400
 
+    get_firebase_auth()
     database = firestore.client()
     matching = []
     for snapshot in database.collection("login_unlock_requests").stream():
