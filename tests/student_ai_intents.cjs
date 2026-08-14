@@ -272,4 +272,9 @@ if (availableCourseBody.innerHTML.includes("LM007") || !availableCourseBody.inne
 console.log("STUDENT_AI_INTENTS_OK: 130 scenarios");
 `;
 
-vm.runInNewContext(fs.readFileSync("static/js/sinh_vien.js", "utf8") + testCode, context);
+const studentPortalSource = [
+    "static/js/sinh_vien.js",
+    "static/js/student-assistant.js"
+].map((file) => fs.readFileSync(file, "utf8")).join("\n");
+
+vm.runInNewContext(studentPortalSource + testCode, context);

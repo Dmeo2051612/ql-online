@@ -71,6 +71,8 @@ let boDemKiemTraHoTroMatKhau = null;
 let resetStep = "request";
 let passwordResetRequestId = "";
 let passwordResetToken = "";
+let resetResendRemaining = 0;
+let resetResendTimerId = null;
 let forcedPasswordEmail = "";
 let returnToForcedPassword = false;
 
@@ -783,11 +785,45 @@ function resetStepLabel() {
 
 function setResetLoading(dang) {
     resetButton.disabled = dang || resetStep === "done";
-    resendResetCodeButton.disabled = dang;
+    resendResetCodeButton.disabled = dang || resetResendRemaining > 0;
     resetButtonText.textContent = dang
         ? (resetStep === "verify" ? "Đang xác minh..." : resetStep === "complete" ? "Đang cập nhật..." : "Đang gửi mã...")
         : resetStepLabel();
     resetSpinner.classList.toggle("hidden", !dang);
+}
+
+
+function formatResetCountdown(totalSeconds) {
+    const total = Math.max(0, Math.ceil(Number(totalSeconds || 0)));
+    const minutes = Math.floor(total / 60);
+    const seconds = total % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+
+function updateResetResendButton() {
+    if (!resendResetCodeButton) return;
+    const locked = resetResendRemaining > 0;
+    resendResetCodeButton.disabled = locked;
+    resendResetCodeButton.textContent = locked
+        ? `Gửi lại sau ${formatResetCountdown(resetResendRemaining)}`
+        : "Gửi lại mã OTP";
+}
+
+
+function startResetResendCountdown(totalSeconds) {
+    if (resetResendTimerId) window.clearInterval(resetResendTimerId);
+    resetResendRemaining = Math.max(0, Math.ceil(Number(totalSeconds || 0)));
+    updateResetResendButton();
+    if (!resetResendRemaining) return;
+    resetResendTimerId = window.setInterval(function () {
+        resetResendRemaining = Math.max(0, resetResendRemaining - 1);
+        updateResetResendButton();
+        if (!resetResendRemaining) {
+            window.clearInterval(resetResendTimerId);
+            resetResendTimerId = null;
+        }
+    }, 1000);
 }
 
 
@@ -805,6 +841,10 @@ function setResetStep(nextStep) {
 
 
 function resetPasswordFlow() {
+    if (resetResendTimerId) window.clearInterval(resetResendTimerId);
+    resetResendTimerId = null;
+    resetResendRemaining = 0;
+    updateResetResendButton();
     forgotPasswordForm.reset();
     passwordResetRequestId = "";
     passwordResetToken = "";
@@ -823,7 +863,9 @@ async function postResetApi(path, payload) {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-        throw new Error(data.error || "Không thể xử lý yêu cầu. Vui lòng thử lại.");
+        const error = new Error(data.error || "Không thể xử lý yêu cầu. Vui lòng thử lại.");
+        error.retryAfterSeconds = Number(data.retryAfterSeconds || response.headers.get("Retry-After") || 0);
+        throw error;
     }
     return data;
 }
@@ -840,8 +882,15 @@ async function requestResetOtp() {
     passwordResetToken = "";
     resetOtpInput.value = "";
     setResetStep("verify");
+    startResetResendCountdown(data.resendAfterSeconds || 0);
     resetMessage.className = "message-success";
-    resetMessage.textContent = "Mã OTP đã được gửi, vui lòng kiểm tra email của bạn.";
+    if (data.emailLocked) {
+        resetMessage.textContent = `Mã OTP đã được gửi. Email đã đạt giới hạn gửi liên tiếp và tạm khóa trong ${formatResetCountdown(data.resendAfterSeconds)}.`;
+    } else if (data.attemptsRemaining !== null && data.attemptsRemaining !== undefined && Number.isFinite(Number(data.attemptsRemaining))) {
+        resetMessage.textContent = `Mã OTP đã được gửi, vui lòng kiểm tra email của bạn. Còn ${Number(data.attemptsRemaining)} lần gửi trước khi tạm khóa.`;
+    } else {
+        resetMessage.textContent = "Mã OTP đã được gửi, vui lòng kiểm tra email của bạn.";
+    }
 }
 
 
@@ -904,6 +953,7 @@ forgotPasswordForm.addEventListener("submit", async function (event) {
         }
     } catch (loi) {
         console.error("Không thể đặt lại mật khẩu:", loi);
+        if (loi?.retryAfterSeconds) startResetResendCountdown(loi.retryAfterSeconds);
         resetMessage.className = "message-error";
         resetMessage.textContent = loi?.message || "Không thể xử lý yêu cầu. Vui lòng thử lại.";
     } finally {
@@ -925,6 +975,7 @@ resendResetCodeButton?.addEventListener("click", async function () {
         resetEmailInput.readOnly = false;
         await requestResetOtp();
     } catch (loi) {
+        if (loi?.retryAfterSeconds) startResetResendCountdown(loi.retryAfterSeconds);
         resetMessage.className = "message-error";
         resetMessage.textContent = loi?.message || "Không thể gửi lại mã OTP.";
     } finally {

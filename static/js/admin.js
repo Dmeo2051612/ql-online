@@ -1,246 +1,6 @@
 import { passwordPolicyError } from "./password-policy.js";
-
-// ===========================
-// TOAST & CONFIRM SYSTEM
-// ===========================
-
-let _toastContainer = null;
-
-function layToastContainer() {
-    if (_toastContainer) {
-        return _toastContainer;
-    }
-
-    _toastContainer = document.createElement("div");
-    _toastContainer.id = "toast-container";
-    document.body.appendChild(_toastContainer);
-
-    return _toastContainer;
-}
-
-
-function hienThiThongBao(noiDung, loai) {
-    const container = layToastContainer();
-    const toast = document.createElement("div");
-
-    toast.className = `toast toast-${loai || "success"}`;
-    toast.textContent = noiDung;
-
-    container.appendChild(toast);
-
-    requestAnimationFrame(function () {
-        toast.classList.add("toast-show");
-    });
-
-    setTimeout(function () {
-        toast.classList.remove("toast-show");
-        toast.classList.add("toast-hide");
-
-        setTimeout(function () {
-            toast.remove();
-        }, 350);
-    }, 3500);
-}
-
-
-function xacNhan(noiDung) {
-    return new Promise(function (resolve) {
-        const overlay = document.createElement("div");
-        overlay.className = "confirm-overlay";
-        const card = document.createElement("div");
-        card.className = "confirm-card";
-        card.setAttribute("role", "alertdialog");
-        card.setAttribute("aria-modal", "true");
-
-        const message = document.createElement("p");
-        message.className = "confirm-message";
-        message.textContent = noiDung;
-
-        const actions = document.createElement("div");
-        actions.className = "confirm-actions";
-
-        const cancelButton = document.createElement("button");
-        cancelButton.type = "button";
-        cancelButton.className = "confirm-cancel";
-        cancelButton.textContent = "Hủy";
-
-        const confirmButton = document.createElement("button");
-        confirmButton.type = "button";
-        confirmButton.className = "confirm-ok";
-        confirmButton.textContent = "Xác nhận";
-
-        actions.append(cancelButton, confirmButton);
-        card.append(message, actions);
-        overlay.appendChild(card);
-
-        document.body.appendChild(overlay);
-        document.body.style.overflow = "hidden";
-
-        let daDong = false;
-
-        function ketThuc(ketQua) {
-            if (daDong) {
-                return;
-            }
-
-            daDong = true;
-            overlay.remove();
-            document.body.style.overflow = "";
-            resolve(ketQua);
-        }
-
-        confirmButton.addEventListener("click", function () {
-            ketThuc(true);
-        });
-
-        cancelButton.addEventListener("click", function () {
-            ketThuc(false);
-        });
-
-        overlay.addEventListener("keydown", function (e) {
-            if (e.key === "Escape") {
-                ketThuc(false);
-            }
-        });
-
-        overlay.addEventListener("click", function (event) {
-            if (event.target === overlay) {
-                ketThuc(false);
-            }
-        });
-
-        confirmButton.focus();
-    });
-}
-
-
-// ===========================
-// TABLE LOADING & ERROR STATES
-// ===========================
-
-async function voiGioiHanThoiGian(tacVu, thongBao, thoiGian = 15000) {
-    let boDem;
-
-    try {
-        return await Promise.race([
-            tacVu,
-            new Promise(function (_, reject) {
-                boDem = window.setTimeout(function () {
-                    reject(new Error(thongBao));
-                }, thoiGian);
-            })
-        ]);
-    } finally {
-        window.clearTimeout(boDem);
-    }
-}
-
-
-function hienThiDangTaiBang(thanBang, soCot, noiDung) {
-    if (!thanBang) {
-        return;
-    }
-
-    thanBang.replaceChildren();
-    thanBang.setAttribute("aria-busy", "true");
-
-    const dongThongBao = document.createElement("tr");
-    const oThongBao = document.createElement("td");
-    const noiDungTai = document.createElement("div");
-    const cacCham = document.createElement("span");
-    const nhan = document.createElement("span");
-
-    oThongBao.colSpan = soCot;
-    oThongBao.className = "table-loading-cell";
-    noiDungTai.className = "table-loading-content";
-    cacCham.className = "loading-dots";
-    cacCham.setAttribute("aria-hidden", "true");
-
-    for (let i = 0; i < 3; i += 1) {
-        cacCham.appendChild(document.createElement("i"));
-    }
-
-    nhan.textContent = noiDung;
-    noiDungTai.append(cacCham, nhan);
-    oThongBao.appendChild(noiDungTai);
-    dongThongBao.appendChild(oThongBao);
-    thanBang.appendChild(dongThongBao);
-
-    const doDaiThanh = ["72%", "88%", "64%", "78%", "56%", "84%", "68%", "74%", "60%"];
-
-    for (let dongIndex = 0; dongIndex < 3; dongIndex += 1) {
-        const dong = document.createElement("tr");
-        dong.className = "table-skeleton-row";
-        dong.setAttribute("aria-hidden", "true");
-
-        for (let cotIndex = 0; cotIndex < soCot; cotIndex += 1) {
-            const o = document.createElement("td");
-            const thanh = document.createElement("span");
-
-            thanh.className = "skeleton-line";
-            thanh.style.width = doDaiThanh[(dongIndex + cotIndex) % doDaiThanh.length];
-            o.appendChild(thanh);
-            dong.appendChild(o);
-        }
-
-        thanBang.appendChild(dong);
-    }
-}
-
-
-function hienThiTrangThaiBang(thanBang, soCot, noiDung, loai = "empty", thuLai) {
-    if (!thanBang) {
-        return;
-    }
-
-    thanBang.replaceChildren();
-    thanBang.setAttribute("aria-busy", "false");
-
-    const dong = document.createElement("tr");
-    const o = document.createElement("td");
-    const khoi = document.createElement("div");
-    const bieuTuong = document.createElement("span");
-    const nhan = document.createElement("span");
-
-    o.colSpan = soCot;
-    o.className = `table-state-cell table-state-${loai}`;
-    khoi.className = "table-state-content";
-    bieuTuong.className = "table-state-icon";
-    bieuTuong.setAttribute("aria-hidden", "true");
-    bieuTuong.textContent = loai === "error" ? "!" : "○";
-    nhan.textContent = noiDung;
-
-    khoi.append(bieuTuong, nhan);
-
-    if (typeof thuLai === "function") {
-        const nutThuLai = document.createElement("button");
-        nutThuLai.type = "button";
-        nutThuLai.className = "table-retry-button";
-        nutThuLai.textContent = "Thử lại";
-        nutThuLai.addEventListener("click", thuLai);
-        khoi.appendChild(nutThuLai);
-    }
-
-    o.appendChild(khoi);
-    dong.appendChild(o);
-    thanBang.appendChild(dong);
-}
-
-
-function layThongBaoLoiTaiDuLieu(loi) {
-    const maLoi = String(loi?.code || "").toLowerCase();
-
-    if (maLoi.includes("permission-denied")) {
-        return "Bạn không có quyền đọc dữ liệu này.";
-    }
-
-    if (maLoi.includes("unavailable") || maLoi.includes("network")) {
-        return "Không thể kết nối Firebase. Vui lòng kiểm tra mạng.";
-    }
-
-    return loi?.message || "Đã xảy ra lỗi khi tải dữ liệu.";
-}
-
+import { escapeHtml, replaceSelectOptions, safeNumber } from "./dom-utils.js";
+import { hienThiThongBao, xacNhan, voiGioiHanThoiGian, hienThiDangTaiBang, hienThiTrangThaiBang, layThongBaoLoiTaiDuLieu } from "./admin-ui.js";
 
 // ===========================
 // CACHE DANH SÁCH KHOA
@@ -559,10 +319,16 @@ const cleanupPermissionRequests = document.getElementById("cleanup-permission-re
 const passwordPolicyMenu = document.getElementById("password-policy-menu");
 const passwordPolicySection = document.getElementById("chinh-sach-mat-khau");
 const passwordPolicyForm = document.getElementById("password-policy-form");
+const passwordAgeEnabled = document.getElementById("password-age-enabled");
 const passwordAgeHours = document.getElementById("password-age-hours");
 const passwordAgeMinutes = document.getElementById("password-age-minutes");
 const passwordAgeSeconds = document.getElementById("password-age-seconds");
 const passwordHistoryCount = document.getElementById("password-history-count");
+const passwordResetLockHours = document.getElementById("password-reset-lock-hours");
+const passwordResetLockMinutes = document.getElementById("password-reset-lock-minutes");
+const passwordResetLockSeconds = document.getElementById("password-reset-lock-seconds");
+const passwordResetProtectionEnabled = document.getElementById("password-reset-protection-enabled");
+const passwordResetMaxRequests = document.getElementById("password-reset-max-requests");
 const passwordPolicyErrorElement = document.getElementById("password-policy-error");
 const passwordPolicySummary = document.getElementById("password-policy-summary");
 const savePasswordPolicyButton = document.getElementById("save-password-policy");
@@ -1886,7 +1652,8 @@ function hienThiDanhSachLopMon(danhSach) {
 
     courseTableBody.setAttribute("aria-busy", "false");
     courseTableBody.innerHTML = danhSach.map(function (lopMon) {
-        const namKetThuc = Number(lopMon.namhoc) + 1;
+        const namHoc = safeNumber(lopMon.namhoc);
+        const namKetThuc = namHoc + 1;
 
 
         const trangThai = String(
@@ -1902,40 +1669,40 @@ function hienThiDanhSachLopMon(danhSach) {
 
         return `
             <tr>
-                <td>${lopMon.malopmon}</td>
+                <td>${escapeHtml(lopMon.malopmon)}</td>
 
                 <td>
-                    <strong>${lopMon.tenmon}</strong><br>
-                    <small>${lopMon.mamon}</small>
+                    <strong>${escapeHtml(lopMon.tenmon)}</strong><br>
+                    <small>${escapeHtml(lopMon.mamon)}</small>
                 </td>
 
                 <td>
-                    <strong>${lopMon.tengiaovien}</strong><br>
-                    <small>${lopMon.magv}</small>
+                    <strong>${escapeHtml(lopMon.tengiaovien)}</strong><br>
+                    <small>${escapeHtml(lopMon.magv)}</small>
                 </td>
 
-                <td>Học kỳ ${lopMon.hocky}</td>
+                <td>Học kỳ ${escapeHtml(lopMon.hocky)}</td>
 
                 <td>
-                    ${lopMon.namhoc} - ${namKetThuc}
-                </td>
-
-                <td>
-                    <strong>${lopMon.thu ? (Number(lopMon.thu) === 8 ? "Chủ nhật" : `Thứ ${lopMon.thu}`) : "Chưa xếp"}</strong><br>
-                    <small>${lopMon.giobatdau && lopMon.gioketthuc ? `${lopMon.giobatdau} – ${lopMon.gioketthuc}` : "—"}</small><br>
-                    <small>${lopMon.ngaybatdauhoc && lopMon.ngayketthuchoc ? `${lopMon.ngaybatdauhoc} → ${lopMon.ngayketthuchoc}` : "Chưa có thời hạn học"}</small>
+                    ${namHoc} - ${namKetThuc}
                 </td>
 
                 <td>
-                    ${lopMon.sisodadangky}/${lopMon.sisotoida}
+                    <strong>${lopMon.thu ? (Number(lopMon.thu) === 8 ? "Chủ nhật" : `Thứ ${escapeHtml(lopMon.thu)}`) : "Chưa xếp"}</strong><br>
+                    <small>${lopMon.giobatdau && lopMon.gioketthuc ? `${escapeHtml(lopMon.giobatdau)} – ${escapeHtml(lopMon.gioketthuc)}` : "—"}</small><br>
+                    <small>${lopMon.ngaybatdauhoc && lopMon.ngayketthuchoc ? `${escapeHtml(lopMon.ngaybatdauhoc)} → ${escapeHtml(lopMon.ngayketthuchoc)}` : "Chưa có thời hạn học"}</small>
                 </td>
 
                 <td>
-                    ${dinhDangNgayGio(lopMon.ngaybatdaudk)}
+                    ${safeNumber(lopMon.sisodadangky)}/${safeNumber(lopMon.sisotoida)}
+                </td>
+
+                <td>
+                    ${escapeHtml(dinhDangNgayGio(lopMon.ngaybatdaudk))}
                     <br>
                     đến
                     <br>
-                    ${dinhDangNgayGio(lopMon.ngayketthucdk)}
+                    ${escapeHtml(dinhDangNgayGio(lopMon.ngayketthucdk))}
                 </td>
 
                 <td>
@@ -1943,21 +1710,21 @@ function hienThiDanhSachLopMon(danhSach) {
                         course-status
                         ${dangMo ? "status-open" : "status-closed"}
                     ">
-                        ${trangThai}
+                        ${escapeHtml(trangThai)}
                     </span>
                 </td>
 
                 <td>
-                    <button type="button" class="edit-course-button" data-malopmon="${lopMon.malopmon}">Sửa</button>
+                    <button type="button" class="edit-course-button" data-malopmon="${escapeHtml(lopMon.malopmon)}">Sửa</button>
                     <button
                         type="button"
                         class="
                             close-course-button
                             ${dangMo ? "" : "reopen-course-button"}
                         "
-                        data-malopmon="${lopMon.malopmon}"
-                        data-trangthai-moi="${trangThaiMoi}">
-                        ${tenNut}
+                        data-malopmon="${escapeHtml(lopMon.malopmon)}"
+                        data-trangthai-moi="${escapeHtml(trangThaiMoi)}">
+                        ${escapeHtml(tenNut)}
                     </button>
                 </td>
             </tr>
@@ -2351,35 +2118,23 @@ async function taiLuaChonLopMon() {
             });
 
 
-        courseSubject.innerHTML = `
-            <option value="">
-                -- Chọn môn học --
-            </option>
+        replaceSelectOptions(
+            courseSubject,
+            danhSachMonHoc.map((monHoc) => ({
+                value: monHoc.mamon,
+                label: `${monHoc.mamon} - ${monHoc.tenmon} (${safeNumber(monHoc.sotinchi)} tín chỉ)`
+            })),
+            "-- Chọn môn học --"
+        );
 
-            ${danhSachMonHoc.map(function (monHoc) {
-                return `
-                    <option value="${monHoc.mamon}">
-                        ${monHoc.mamon} - ${monHoc.tenmon}
-                        (${monHoc.sotinchi} tín chỉ)
-                    </option>
-                `;
-            }).join("")}
-        `;
-
-
-        courseTeacher.innerHTML = `
-            <option value="">
-                -- Chọn giáo viên --
-            </option>
-
-            ${danhSachGiaoVien.map(function (giaoVien) {
-                return `
-                    <option value="${giaoVien.magv}">
-                        ${giaoVien.magv} - ${giaoVien.hoten}
-                    </option>
-                `;
-            }).join("")}
-        `;
+        replaceSelectOptions(
+            courseTeacher,
+            danhSachGiaoVien.map((giaoVien) => ({
+                value: giaoVien.magv,
+                label: `${giaoVien.magv} - ${giaoVien.hoten}`
+            })),
+            "-- Chọn giáo viên --"
+        );
 
     } catch (loi) {
         console.error(
@@ -2789,24 +2544,15 @@ async function taiDanhSachKhoa() {
         // tải danh sách khoa từ cache
         const danhSachKhoa = await layDanhSachKhoaTuCache();
 
-        const cacLuaChon = danhSachKhoa.map(
-            function (khoa) {
-                return `
-                    <option value="${khoa.makhoa}">
-                        ${khoa.makhoa} - ${khoa.tenkhoa}
-                    </option>
-                `;
-            }
-        ).join("");
-
         facultySelects.forEach(function (select) {
-            select.innerHTML = `
-                <option value="">
-                    -- Chọn khoa --
-                </option>
-
-                ${cacLuaChon}
-            `;
+            replaceSelectOptions(
+                select,
+                danhSachKhoa.map((khoa) => ({
+                    value: khoa.makhoa,
+                    label: `${khoa.makhoa} - ${khoa.tenkhoa}`
+                })),
+                "-- Chọn khoa --"
+            );
         });
 
     } catch (loi) {
@@ -3066,15 +2812,42 @@ departmentForm.addEventListener("submit", async function (event) {
 });
 
 
-function capNhatTomTatChinhSach(maxAgeSeconds, historyCount) {
-    if (!maxAgeSeconds) {
-        passwordPolicySummary.textContent = `Không hết hạn · Password History Value: ${historyCount}`;
-        return;
+function dinhDangThoiLuongChinhSach(totalSeconds) {
+    const total = Math.max(0, Number(totalSeconds || 0));
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const seconds = total % 60;
+    const parts = [];
+    if (hours) parts.push(`${hours} giờ`);
+    if (minutes) parts.push(`${minutes} phút`);
+    if (seconds || !parts.length) parts.push(`${seconds} giây`);
+    return parts.join(" ");
+}
+
+
+function capNhatTrangThaiNhomChinhSach(toggle) {
+    const module = toggle?.closest(".policy-module");
+    const contentId = toggle?.getAttribute("aria-controls");
+    const content = contentId ? document.getElementById(contentId) : null;
+    const enabled = Boolean(toggle?.checked);
+    module?.classList.toggle("is-collapsed", !enabled);
+    toggle?.setAttribute("aria-expanded", String(enabled));
+    content?.querySelectorAll("input").forEach((input) => {
+        input.disabled = !enabled;
+    });
+}
+
+
+function capNhatTomTatChinhSach(policy) {
+    const summaries = [];
+    if (policy.passwordAgeEnabled) {
+        summaries.push(`Password Age: ${dinhDangThoiLuongChinhSach(policy.maxAgeSeconds)}`);
+        summaries.push(`History: ${policy.historyCount}`);
     }
-    const hours = Math.floor(maxAgeSeconds / 3600);
-    const minutes = Math.floor((maxAgeSeconds % 3600) / 60);
-    const seconds = maxAgeSeconds % 60;
-    passwordPolicySummary.textContent = `${hours} giờ ${minutes} phút ${seconds} giây · Password History Value: ${historyCount}`;
+    if (policy.passwordResetProtectionEnabled) {
+        summaries.push(`OTP: ${policy.passwordResetMaxRequests} lần / ${dinhDangThoiLuongChinhSach(policy.passwordResetCooldownSeconds)}`);
+    }
+    passwordPolicySummary.textContent = summaries.length ? summaries.join(" · ") : "Chưa bật chính sách";
 }
 
 
@@ -3084,11 +2857,20 @@ async function taiChinhSachMatKhau() {
     try {
         const data = await goiApiYeuCau("/api/admin/password-policy");
         const total = Number(data.maxAgeSeconds || 0);
+        passwordAgeEnabled.checked = Boolean(data.passwordAgeEnabled);
         passwordAgeHours.value = Math.floor(total / 3600);
         passwordAgeMinutes.value = Math.floor((total % 3600) / 60);
         passwordAgeSeconds.value = total % 60;
         passwordHistoryCount.value = Number(data.historyCount || 0);
-        capNhatTomTatChinhSach(total, Number(data.historyCount || 0));
+        const resetCooldown = Number(data.passwordResetCooldownSeconds || 300);
+        passwordResetLockHours.value = Math.floor(resetCooldown / 3600);
+        passwordResetLockMinutes.value = Math.floor((resetCooldown % 3600) / 60);
+        passwordResetLockSeconds.value = resetCooldown % 60;
+        passwordResetProtectionEnabled.checked = data.passwordResetProtectionEnabled !== false;
+        passwordResetMaxRequests.value = Number(data.passwordResetMaxRequests || 3);
+        capNhatTrangThaiNhomChinhSach(passwordAgeEnabled);
+        capNhatTrangThaiNhomChinhSach(passwordResetProtectionEnabled);
+        capNhatTomTatChinhSach(data);
     } catch (loi) {
         passwordPolicyErrorElement.textContent = loi.message;
         passwordPolicySummary.textContent = "Không tải được";
@@ -3103,24 +2885,50 @@ passwordPolicyForm?.addEventListener("submit", async function (event) {
     const minutes = Number(passwordAgeMinutes.value || 0);
     const seconds = Number(passwordAgeSeconds.value || 0);
     const historyCount = Number(passwordHistoryCount.value || 0);
-    if ([hours, minutes, seconds, historyCount].some((value) => !Number.isInteger(value) || value < 0)) {
+    const resetHours = Number(passwordResetLockHours.value || 0);
+    const resetMinutes = Number(passwordResetLockMinutes.value || 0);
+    const resetSeconds = Number(passwordResetLockSeconds.value || 0);
+    const resetMaxRequests = Number(passwordResetMaxRequests.value || 0);
+    const values = [hours, minutes, seconds, historyCount, resetHours, resetMinutes, resetSeconds, resetMaxRequests];
+    if (values.some((value) => !Number.isInteger(value) || value < 0)) {
         passwordPolicyErrorElement.textContent = "Các giá trị phải là số nguyên không âm.";
         return;
     }
-    if (minutes > 59 || seconds > 59 || historyCount > 24) {
-        passwordPolicyErrorElement.textContent = "Phút và giây tối đa 59; lịch sử tối đa 24.";
+    if (minutes > 59 || seconds > 59 || resetMinutes > 59 || resetSeconds > 59 || historyCount > 24 || resetMaxRequests > 20) {
+        passwordPolicyErrorElement.textContent = "Phút và giây tối đa 59; History Value tối đa 24; số lần gửi tối đa 20.";
         return;
     }
     const maxAgeSeconds = hours * 3600 + minutes * 60 + seconds;
+    const passwordResetCooldownSeconds = resetHours * 3600 + resetMinutes * 60 + resetSeconds;
+    if (passwordAgeEnabled.checked && maxAgeSeconds < 1) {
+        passwordPolicyErrorElement.textContent = "Password Age phải lớn hơn 0 giây khi đang bật.";
+        return;
+    }
+    if (passwordResetCooldownSeconds < 60 || passwordResetCooldownSeconds > 86400) {
+        passwordPolicyErrorElement.textContent = "Thời gian khóa email phải từ 60 giây đến 24 giờ.";
+        return;
+    }
+    if (resetMaxRequests < 1 || resetMaxRequests > 20) {
+        passwordPolicyErrorElement.textContent = "Số lần gửi OTP liên tiếp phải từ 1 đến 20.";
+        return;
+    }
+    const policy = {
+        passwordAgeEnabled: passwordAgeEnabled.checked,
+        maxAgeSeconds,
+        historyCount,
+        passwordResetProtectionEnabled: passwordResetProtectionEnabled.checked,
+        passwordResetCooldownSeconds,
+        passwordResetMaxRequests: resetMaxRequests,
+    };
     const oldText = savePasswordPolicyButton.textContent;
     savePasswordPolicyButton.disabled = true;
     savePasswordPolicyButton.textContent = "Đang lưu...";
     try {
         await goiApiYeuCau("/api/admin/password-policy", {
             method: "PUT",
-            body: JSON.stringify({ maxAgeSeconds, historyCount })
+            body: JSON.stringify(policy)
         });
-        capNhatTomTatChinhSach(maxAgeSeconds, historyCount);
+        capNhatTomTatChinhSach(policy);
         hienThiThongBao("Đã cập nhật chính sách mật khẩu.", "success");
     } catch (loi) {
         passwordPolicyErrorElement.textContent = loi.message;
@@ -3128,6 +2936,13 @@ passwordPolicyForm?.addEventListener("submit", async function (event) {
         savePasswordPolicyButton.disabled = false;
         savePasswordPolicyButton.textContent = oldText;
     }
+});
+
+
+[passwordAgeEnabled, passwordResetProtectionEnabled].forEach((toggle) => {
+    toggle?.addEventListener("change", function () {
+        capNhatTrangThaiNhomChinhSach(toggle);
+    });
 });
 
 
@@ -3455,15 +3270,15 @@ async function taiDanhSachMonHoc() {
         const cacDong = danhSach.map(function (monHoc) {
             return `
                 <tr>
-                    <td>${monHoc.mamon}</td>
-                    <td>${monHoc.tenmon}</td>
-                    <td>${monHoc.sotinchi}</td>
+                    <td>${escapeHtml(monHoc.mamon)}</td>
+                    <td>${escapeHtml(monHoc.tenmon)}</td>
+                    <td>${safeNumber(monHoc.sotinchi)}</td>
                     <td>
                         <div class="subject-actions">
                             <button
                                 type="button"
                                 class="subject-edit-button"
-                                data-mamon="${monHoc.mamon}"
+                                data-mamon="${escapeHtml(monHoc.mamon)}"
                             >
                                 Sửa
                             </button>
@@ -3471,7 +3286,7 @@ async function taiDanhSachMonHoc() {
                             <button
                                 type="button"
                                 class="subject-delete-button"
-                                data-mamon="${monHoc.mamon}"
+                                data-mamon="${escapeHtml(monHoc.mamon)}"
                             >
                                 Xóa
                             </button>

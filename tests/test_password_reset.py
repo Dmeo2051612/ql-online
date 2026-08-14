@@ -3,16 +3,61 @@ import json
 import re
 import urllib.error
 import unittest
+from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from unittest.mock import patch
 
 from password_reset_api import (
+    _check_rate_limit,
     _normalize_email,
     _otp_digest,
     _parse_bool,
     _password_policy_error,
+    _lock_password_reset_after_completion,
     _send_otp_email,
+    _record_password_reset_request,
 )
+from password_security import normalize_password_policy
+
+
+class FakeSnapshot:
+    def __init__(self, data=None):
+        self._data = data
+
+    @property
+    def exists(self):
+        return self._data is not None
+
+    def to_dict(self):
+        return dict(self._data or {})
+
+
+class FakeRateDocument:
+    def __init__(self, data):
+        self.data = data
+
+    def get(self):
+        return FakeSnapshot(self.data)
+
+    def set(self, data):
+        self.data.clear()
+        self.data.update(dict(data))
+
+
+class FakeRateCollection:
+    def __init__(self, data):
+        self.data = data
+
+    def document(self, _document_id):
+        return FakeRateDocument(self.data)
+
+
+class FakeRateDatabase:
+    def __init__(self, data):
+        self.data = data
+
+    def collection(self, _name):
+        return FakeRateCollection(self.data)
 
 
 class FakeSMTP:
@@ -80,6 +125,72 @@ class PasswordResetTests(unittest.TestCase):
             self.assertEqual(first, _otp_digest("request-a", "012345"))
             self.assertNotEqual(first, _otp_digest("request-b", "012345"))
             self.assertNotIn("012345", first)
+
+    def test_configured_email_lock_controls_retry_time(self):
+        now = datetime(2026, 8, 14, 8, 0, tzinfo=timezone.utc)
+        database = FakeRateDatabase({
+            "lastRequestedAt": now - timedelta(seconds=120),
+            "seriesStartedAt": now - timedelta(seconds=120),
+            "requestCount": 3,
+            "lockedUntil": now + timedelta(seconds=180),
+        })
+        policy = normalize_password_policy({
+            "passwordResetProtectionEnabled": True,
+            "passwordResetCooldownSeconds": 300,
+            "passwordResetMaxRequests": 3,
+        })
+        with patch.dict(os.environ, {"OTP_SECRET": "a-secure-test-secret-123"}):
+            _reference, retry_after, _count, _window = _check_rate_limit(
+                database,
+                "student@example.com",
+                now,
+                policy,
+            )
+        self.assertEqual(retry_after, 180)
+
+    def test_email_is_only_locked_after_configured_consecutive_requests(self):
+        now = datetime(2026, 8, 14, 8, 0, tzinfo=timezone.utc)
+        database = FakeRateDatabase({})
+        policy = normalize_password_policy({
+            "passwordResetProtectionEnabled": True,
+            "passwordResetCooldownSeconds": 300,
+            "passwordResetMaxRequests": 3,
+        })
+        with patch.dict(os.environ, {"OTP_SECRET": "a-secure-test-secret-123"}):
+            reference, retry_after, count, started = _check_rate_limit(
+                database, "student@example.com", now, policy
+            )
+            first = _record_password_reset_request(reference, now, count, started, policy)
+            second = _record_password_reset_request(reference, now, 1, started, policy)
+            third = _record_password_reset_request(reference, now, 2, started, policy)
+            _reference, retry_after_after_limit, _count, _started = _check_rate_limit(
+                database, "student@example.com", now, policy
+            )
+
+        self.assertEqual(retry_after, 0)
+        self.assertFalse(first["locked"])
+        self.assertFalse(second["locked"])
+        self.assertTrue(third["locked"])
+        self.assertEqual(retry_after_after_limit, 300)
+
+    def test_successful_password_reset_starts_email_lock(self):
+        now = datetime(2026, 8, 14, 8, 0, tzinfo=timezone.utc)
+        database = FakeRateDatabase({})
+        policy = normalize_password_policy({
+            "passwordResetProtectionEnabled": True,
+            "passwordResetCooldownSeconds": 600,
+            "passwordResetMaxRequests": 3,
+        })
+        with patch.dict(os.environ, {"OTP_SECRET": "a-secure-test-secret-123"}):
+            _lock_password_reset_after_completion(
+                database, "student@example.com", now, policy
+            )
+            _reference, retry_after, _count, _started = _check_rate_limit(
+                database, "student@example.com", now, policy
+            )
+
+        self.assertEqual(retry_after, 600)
+        self.assertEqual(database.data["lockReason"], "password_reset_completed")
 
     def test_password_policy(self):
         self.assertEqual(_password_policy_error("StrongPass!246", "student@example.com"), "")

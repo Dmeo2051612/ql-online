@@ -13,7 +13,11 @@ from notification_api import _admin_identity, _current_identity, _identity_cache
 from password_reset_api import _password_policy_error
 from password_security import (
     MAX_HISTORY_COUNT,
+    MAX_PASSWORD_RESET_COOLDOWN_SECONDS,
+    MAX_PASSWORD_RESET_MAX_REQUESTS,
     MIN_ENABLED_AGE_SECONDS,
+    MIN_PASSWORD_RESET_COOLDOWN_SECONDS,
+    MIN_PASSWORD_RESET_MAX_REQUESTS,
     build_password_history,
     normalize_password_policy,
     password_matches_history,
@@ -90,8 +94,18 @@ def update_admin_password_policy():
 
     payload = request.get_json(silent=True) or {}
     try:
+        password_age_enabled = bool(payload.get("passwordAgeEnabled"))
         max_age_seconds = int(payload.get("maxAgeSeconds") or 0)
         history_count = int(payload.get("historyCount") or 0)
+        password_reset_protection_enabled = bool(
+            payload.get("passwordResetProtectionEnabled")
+        )
+        password_reset_cooldown_seconds = int(
+            payload.get("passwordResetCooldownSeconds") or 0
+        )
+        password_reset_max_requests = int(
+            payload.get("passwordResetMaxRequests") or 0
+        )
     except (TypeError, ValueError):
         return jsonify(error="Giá trị chính sách mật khẩu không hợp lệ."), 400
     if max_age_seconds < 0 or 0 < max_age_seconds < MIN_ENABLED_AGE_SECONDS:
@@ -99,17 +113,46 @@ def update_admin_password_policy():
     if history_count < 0 or history_count > MAX_HISTORY_COUNT:
         return jsonify(error=f"Lịch sử mật khẩu phải nằm trong khoảng 0–{MAX_HISTORY_COUNT}."), 400
 
+    if not (
+        MIN_PASSWORD_RESET_COOLDOWN_SECONDS
+        <= password_reset_cooldown_seconds
+        <= MAX_PASSWORD_RESET_COOLDOWN_SECONDS
+    ):
+        return jsonify(error=(
+            "Thời gian khóa email phải từ "
+            f"{MIN_PASSWORD_RESET_COOLDOWN_SECONDS} đến "
+            f"{MAX_PASSWORD_RESET_COOLDOWN_SECONDS} giây."
+        )), 400
+    if not (
+        MIN_PASSWORD_RESET_MAX_REQUESTS
+        <= password_reset_max_requests
+        <= MAX_PASSWORD_RESET_MAX_REQUESTS
+    ):
+        return jsonify(error=(
+            "Số lần gửi OTP liên tiếp phải từ "
+            f"{MIN_PASSWORD_RESET_MAX_REQUESTS} đến "
+            f"{MAX_PASSWORD_RESET_MAX_REQUESTS}."
+        )), 400
+
     database = firestore.client()
     _policy_reference(database).set({
+        "passwordAgeEnabled": password_age_enabled,
         "maxAgeSeconds": max_age_seconds,
         "historyCount": history_count,
+        "passwordResetProtectionEnabled": password_reset_protection_enabled,
+        "passwordResetCooldownSeconds": password_reset_cooldown_seconds,
+        "passwordResetMaxRequests": password_reset_max_requests,
         "updatedAt": firestore.SERVER_TIMESTAMP,
         "updatedBy": admin["uid"],
     }, merge=True)
     return jsonify(
         success=True,
+        passwordAgeEnabled=password_age_enabled,
         maxAgeSeconds=max_age_seconds,
         historyCount=history_count,
+        passwordResetProtectionEnabled=password_reset_protection_enabled,
+        passwordResetCooldownSeconds=password_reset_cooldown_seconds,
+        passwordResetMaxRequests=password_reset_max_requests,
     ), 200
 
 
@@ -140,7 +183,7 @@ def password_policy_status():
 
     database = firestore.client()
     policy = _load_policy(database)
-    max_age_seconds = policy["maxAgeSeconds"]
+    max_age_seconds = policy["maxAgeSeconds"] if policy["passwordAgeEnabled"] else 0
     profile_ref = database.collection("users").document(identity["uid"])
     profile_snapshot = profile_ref.get()
     profile = profile_snapshot.to_dict() or {} if profile_snapshot.exists else {}
@@ -233,9 +276,10 @@ def set_temporary_password(uid):
 
     policy = _load_policy(database)
     history = list(profile.get("passwordHistory") or [])
-    if password_matches_history(temporary_password, history[:policy["historyCount"]]):
+    history_count = policy["historyCount"] if policy["passwordAgeEnabled"] else 0
+    if password_matches_history(temporary_password, history[:history_count]):
         return jsonify(
-            error=f"Mật khẩu tạm trùng với một trong {policy['historyCount']} mật khẩu gần nhất."
+            error=f"Mật khẩu tạm trùng với một trong {history_count} mật khẩu gần nhất."
         ), 409
 
     try:
@@ -253,7 +297,7 @@ def set_temporary_password(uid):
         "passwordHistory": build_password_history(
             temporary_password,
             history,
-            policy["historyCount"],
+            history_count,
         ),
         "passwordExpiryWarningKey": firestore.DELETE_FIELD,
         "passwordExpiryGraceUntil": firestore.DELETE_FIELD,
@@ -290,11 +334,12 @@ def change_password_with_policy():
     profile = profile_snapshot.to_dict() or {} if profile_snapshot.exists else {}
     policy = _load_policy(database)
     if identity["role"] == "admin":
-        policy = {**policy, "maxAgeSeconds": 0, "historyCount": 0}
+        policy = {**policy, "passwordAgeEnabled": False, "maxAgeSeconds": 0, "historyCount": 0}
+    history_count = policy["historyCount"] if policy["passwordAgeEnabled"] else 0
     history = list(profile.get("passwordHistory") or [])
-    enforced_history = history[:policy["historyCount"]]
+    enforced_history = history[:history_count]
     if password_matches_history(new_password, enforced_history):
-        return jsonify(error=f"Mật khẩu mới trùng với một trong {policy['historyCount']} mật khẩu gần nhất."), 409
+        return jsonify(error=f"Mật khẩu mới trùng với một trong {history_count} mật khẩu gần nhất."), 409
 
     try:
         _verify_current_password(identity["email"], current_password, identity["uid"])
@@ -313,7 +358,7 @@ def change_password_with_policy():
         "passwordHistory": build_password_history(
             new_password,
             history,
-            policy["historyCount"],
+            history_count,
             current_password=current_password,
         ),
         "passwordExpiryWarningKey": firestore.DELETE_FIELD,

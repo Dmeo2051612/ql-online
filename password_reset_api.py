@@ -27,8 +27,6 @@ password_reset_api_bp = Blueprint("password_reset_api", __name__)
 OTP_TTL_MINUTES = 10
 RESET_TOKEN_TTL_MINUTES = 10
 MAX_OTP_ATTEMPTS = 5
-MIN_RESEND_SECONDS = 60
-MAX_REQUESTS_PER_HOUR = 5
 
 
 def _utc_now():
@@ -215,8 +213,8 @@ def _send_otp_email(email, otp):
     return "smtp"
 
 
-def _json_error(message, status):
-    response = jsonify(error=message)
+def _json_error(message, status, **extra):
+    response = jsonify(error=message, **extra)
     response.headers["Cache-Control"] = "no-store"
     return response, status
 
@@ -227,24 +225,72 @@ def _json_success(payload, status=200):
     return response, status
 
 
-def _check_rate_limit(database, email, now):
+def _load_password_reset_policy(database):
+    snapshot = database.collection("system_settings").document("password_policy").get()
+    return normalize_password_policy(snapshot.to_dict() if snapshot.exists else {})
+
+
+def _check_rate_limit(database, email, now, policy):
     reference = database.collection("password_reset_rate_limits").document(_email_key(email))
     snapshot = reference.get()
     current = snapshot.to_dict() or {} if snapshot.exists else {}
-    last_requested = current.get("lastRequestedAt")
-    window_started = current.get("windowStartedAt")
-    request_count = int(current.get("requestCount") or 0)
-
-    if isinstance(last_requested, datetime) and (now - last_requested).total_seconds() < MIN_RESEND_SECONDS:
-        wait_seconds = MIN_RESEND_SECONDS - int((now - last_requested).total_seconds())
-        return reference, max(1, wait_seconds), request_count, window_started
-
-    if not isinstance(window_started, datetime) or now - window_started >= timedelta(hours=1):
+    if not policy["passwordResetProtectionEnabled"]:
         return reference, 0, 0, now
-    if request_count >= MAX_REQUESTS_PER_HOUR:
-        wait_seconds = int((window_started + timedelta(hours=1) - now).total_seconds())
-        return reference, max(1, wait_seconds), request_count, window_started
-    return reference, 0, request_count, window_started
+
+    cooldown_seconds = policy["passwordResetCooldownSeconds"]
+    locked_until = current.get("lockedUntil")
+    if isinstance(locked_until, datetime) and now < locked_until:
+        return (
+            reference,
+            max(1, int((locked_until - now).total_seconds())),
+            int(current.get("requestCount") or 0),
+            current.get("seriesStartedAt") or now,
+        )
+
+    last_requested = current.get("lastRequestedAt")
+    request_count = int(current.get("requestCount") or 0)
+    series_started = current.get("seriesStartedAt")
+    if (
+        not isinstance(last_requested, datetime)
+        or (now - last_requested).total_seconds() >= cooldown_seconds
+    ):
+        return reference, 0, 0, now
+    return reference, 0, request_count, series_started if isinstance(series_started, datetime) else now
+
+
+def _record_password_reset_request(reference, now, request_count, series_started, policy):
+    if not policy["passwordResetProtectionEnabled"]:
+        return {"locked": False, "attemptsRemaining": None, "retryAfterSeconds": 0}
+    next_count = request_count + 1
+    max_requests = policy["passwordResetMaxRequests"]
+    locked = next_count >= max_requests
+    cooldown_seconds = policy["passwordResetCooldownSeconds"]
+    data = {
+        "lastRequestedAt": now,
+        "seriesStartedAt": series_started,
+        "requestCount": next_count,
+        "lockReason": "request_limit" if locked else "",
+    }
+    if locked:
+        data["lockedUntil"] = now + timedelta(seconds=cooldown_seconds)
+    reference.set(data)
+    return {
+        "locked": locked,
+        "attemptsRemaining": max(0, max_requests - next_count),
+        "retryAfterSeconds": cooldown_seconds if locked else 0,
+    }
+
+
+def _lock_password_reset_after_completion(database, email, now, policy):
+    if not policy["passwordResetProtectionEnabled"]:
+        return
+    database.collection("password_reset_rate_limits").document(_email_key(email)).set({
+        "lastRequestedAt": now,
+        "seriesStartedAt": now,
+        "requestCount": 0,
+        "lockedUntil": now + timedelta(seconds=policy["passwordResetCooldownSeconds"]),
+        "lockReason": "password_reset_completed",
+    })
 
 
 @password_reset_api_bp.post("/api/password-reset/request")
@@ -258,10 +304,15 @@ def request_password_reset():
         auth_client = get_firebase_auth()
         database = firestore.client()
         now = _utc_now()
-        rate_reference, retry_after, request_count, window_started = _check_rate_limit(database, email, now)
+        reset_policy = _load_password_reset_policy(database)
+        rate_reference, retry_after, request_count, series_started = _check_rate_limit(
+            database, email, now, reset_policy
+        )
         if retry_after:
             response, status = _json_error(
-                f"Bạn vừa yêu cầu mã. Vui lòng thử lại sau {retry_after} giây.", 429
+                f"Email đang tạm khóa gửi OTP. Vui lòng thử lại sau {retry_after} giây.",
+                429,
+                retryAfterSeconds=retry_after,
             )
             response.headers["Retry-After"] = str(retry_after)
             return response, status
@@ -269,10 +320,17 @@ def request_password_reset():
         try:
             user = auth_client.get_user_by_email(email)
         except auth_client.UserNotFoundError:
+            request_state = _record_password_reset_request(
+                rate_reference, now, request_count, series_started, reset_policy
+            )
             return _json_success({
                 "success": True,
                 "requestId": secrets.token_urlsafe(24),
                 "expiresInSeconds": OTP_TTL_MINUTES * 60,
+                "resendAfterSeconds": request_state["retryAfterSeconds"],
+                "attemptsRemaining": request_state["attemptsRemaining"],
+                "requestLimit": reset_policy["passwordResetMaxRequests"],
+                "emailLocked": request_state["locked"],
             })
 
         request_id = secrets.token_urlsafe(24)
@@ -295,15 +353,17 @@ def request_password_reset():
             reference.delete()
             raise
 
-        rate_reference.set({
-            "lastRequestedAt": now,
-            "windowStartedAt": window_started,
-            "requestCount": request_count + 1,
-        })
+        request_state = _record_password_reset_request(
+            rate_reference, now, request_count, series_started, reset_policy
+        )
         return _json_success({
             "success": True,
             "requestId": request_id,
             "expiresInSeconds": OTP_TTL_MINUTES * 60,
+            "resendAfterSeconds": request_state["retryAfterSeconds"],
+            "attemptsRemaining": request_state["attemptsRemaining"],
+            "requestLimit": reset_policy["passwordResetMaxRequests"],
+            "emailLocked": request_state["locked"],
         })
     except RuntimeError as exc:
         return _json_error(str(exc), 503)
@@ -404,12 +464,13 @@ def complete_password_reset():
         policy_snapshot = database.collection("system_settings").document("password_policy").get()
         policy = normalize_password_policy(policy_snapshot.to_dict() if policy_snapshot.exists else {})
         if str(profile.get("role") or "").strip().lower() == "admin":
-            policy = {**policy, "maxAgeSeconds": 0, "historyCount": 0}
+            policy = {**policy, "passwordAgeEnabled": False, "maxAgeSeconds": 0, "historyCount": 0}
+        history_count = policy["historyCount"] if policy["passwordAgeEnabled"] else 0
         history = list(profile.get("passwordHistory") or [])
-        enforced_history = history[:policy["historyCount"]]
+        enforced_history = history[:history_count]
         if password_matches_history(password, enforced_history):
             return _json_error(
-                f"Mật khẩu mới trùng với một trong {policy['historyCount']} mật khẩu gần nhất.",
+                f"Mật khẩu mới trùng với một trong {history_count} mật khẩu gần nhất.",
                 409,
             )
 
@@ -419,7 +480,7 @@ def complete_password_reset():
             profile_reference.set({
                 "passwordChangedAt": now,
                 "passwordHistory": build_password_history(
-                    password, history, policy["historyCount"]
+                    password, history, history_count
                 ),
                 "passwordExpiryWarningKey": firestore.DELETE_FIELD,
                 "mustChangePassword": False,
@@ -429,6 +490,12 @@ def complete_password_reset():
                 "passwordExpiryGraceApprovedAt": firestore.DELETE_FIELD,
                 "passwordExpiryGraceApprovedBy": firestore.DELETE_FIELD,
             }, merge=True)
+        _lock_password_reset_after_completion(
+            database,
+            str(data.get("email") or ""),
+            now,
+            policy,
+        )
         reference.delete()
         return _json_success({"success": True})
     except RuntimeError as exc:

@@ -3,8 +3,22 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 DEFAULT_MAX_AGE_SECONDS = 90 * 24 * 60 * 60
 DEFAULT_HISTORY_COUNT = 5
+DEFAULT_PASSWORD_RESET_COOLDOWN_SECONDS = 5 * 60
+DEFAULT_PASSWORD_RESET_MAX_REQUESTS = 3
 MAX_HISTORY_COUNT = 24
 MIN_ENABLED_AGE_SECONDS = 1
+MIN_PASSWORD_RESET_COOLDOWN_SECONDS = 60
+MAX_PASSWORD_RESET_COOLDOWN_SECONDS = 24 * 60 * 60
+MIN_PASSWORD_RESET_MAX_REQUESTS = 1
+MAX_PASSWORD_RESET_MAX_REQUESTS = 20
+
+
+def _normalize_bool(value, default):
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
 def normalize_password_policy(data=None):
@@ -17,9 +31,45 @@ def normalize_password_policy(data=None):
         history_count = int(source.get("historyCount", DEFAULT_HISTORY_COUNT))
     except (TypeError, ValueError):
         history_count = DEFAULT_HISTORY_COUNT
+    try:
+        password_reset_cooldown_seconds = int(source.get(
+            "passwordResetCooldownSeconds",
+            DEFAULT_PASSWORD_RESET_COOLDOWN_SECONDS,
+        ))
+    except (TypeError, ValueError):
+        password_reset_cooldown_seconds = DEFAULT_PASSWORD_RESET_COOLDOWN_SECONDS
+    if not (
+        MIN_PASSWORD_RESET_COOLDOWN_SECONDS
+        <= password_reset_cooldown_seconds
+        <= MAX_PASSWORD_RESET_COOLDOWN_SECONDS
+    ):
+        password_reset_cooldown_seconds = DEFAULT_PASSWORD_RESET_COOLDOWN_SECONDS
+    try:
+        password_reset_max_requests = int(source.get(
+            "passwordResetMaxRequests",
+            DEFAULT_PASSWORD_RESET_MAX_REQUESTS,
+        ))
+    except (TypeError, ValueError):
+        password_reset_max_requests = DEFAULT_PASSWORD_RESET_MAX_REQUESTS
+    if not (
+        MIN_PASSWORD_RESET_MAX_REQUESTS
+        <= password_reset_max_requests
+        <= MAX_PASSWORD_RESET_MAX_REQUESTS
+    ):
+        password_reset_max_requests = DEFAULT_PASSWORD_RESET_MAX_REQUESTS
     return {
+        "passwordAgeEnabled": _normalize_bool(
+            source.get("passwordAgeEnabled"),
+            max_age_seconds > 0,
+        ),
         "maxAgeSeconds": max(0, max_age_seconds),
         "historyCount": min(MAX_HISTORY_COUNT, max(0, history_count)),
+        "passwordResetProtectionEnabled": _normalize_bool(
+            source.get("passwordResetProtectionEnabled"),
+            True,
+        ),
+        "passwordResetCooldownSeconds": password_reset_cooldown_seconds,
+        "passwordResetMaxRequests": password_reset_max_requests,
     }
 
 

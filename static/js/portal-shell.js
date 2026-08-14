@@ -12,6 +12,7 @@ import {
     getDoc
 } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
 import { passwordPolicyError } from "./password-policy.js";
+import { escapeHtml } from "./dom-utils.js";
 
 
 const THEME_KEY = "ql-online-theme";
@@ -31,16 +32,10 @@ let passwordPolicyTimer = null;
 let passwordChangeRequired = false;
 let displayedPasswordWarning = "";
 let displayedGracePrompt = "";
+let notificationReadIds = new Set();
 
 const NOTE_REMINDER_BEFORE_MINUTES = 30;
 const NOTE_REMINDER_AFTER_MINUTES = 60;
-
-
-function escapeHtml(value) {
-    const element = document.createElement("span");
-    element.textContent = String(value || "");
-    return element.innerHTML;
-}
 
 
 function roleLabel(role) {
@@ -521,25 +516,27 @@ function clearVisibleRecipients() {
 }
 
 
-function readIdsKey() {
-    return `ql-online-read-notifications-${currentUser?.uid || "guest"}`;
+function getReadIds() {
+    return notificationReadIds;
 }
 
 
-function getReadIds() {
+async function loadReadState() {
     try {
-        return new Set(JSON.parse(localStorage.getItem(readIdsKey()) || "[]"));
-    } catch {
-        return new Set();
+        const data = await fetchAdminApi("/api/notification-read-state");
+        notificationReadIds = new Set(data.readIds || []);
+        renderNotifications();
+    } catch (error) {
+        console.debug("Không thể tải trạng thái thông báo đã đọc:", error);
     }
 }
 
 
 function markRead(id) {
-    const ids = getReadIds();
-    ids.add(id);
-    localStorage.setItem(readIdsKey(), JSON.stringify([...ids].slice(-500)));
+    notificationReadIds.add(id);
     renderNotifications();
+    fetchAdminApi(`/api/notifications/${encodeURIComponent(id)}/read`, { method: "POST" })
+        .catch((error) => console.debug("Không thể đồng bộ trạng thái đã đọc:", error));
 }
 
 
@@ -612,14 +609,7 @@ function refreshLocalNoteNotifications() {
         return;
     }
 
-    let notes = [];
-    try {
-        const studentCode = String(currentProfile?.masv || "").trim();
-        notes = JSON.parse(localStorage.getItem(`ql-online-calendar-notes-${studentCode || "guest"}`) || "[]");
-        if (!Array.isArray(notes)) notes = [];
-    } catch (_) {
-        notes = [];
-    }
+    const notes = window.QLStudentNotes?.getAll() || [];
 
     localNoteNotifications = buildLocalNoteNotifications(notes, Date.now(), currentUser.uid);
     renderNotifications();
@@ -1080,6 +1070,7 @@ onAuthStateChanged(auth, async (user) => {
         currentProfile = profileSnapshot.data();
         updateProfileUi();
         await checkPasswordPolicy();
+        await loadReadState();
         listenNotifications();
         startPresenceHeartbeat();
         startNoteReminderChecks();

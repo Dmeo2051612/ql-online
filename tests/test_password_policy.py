@@ -3,7 +3,12 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 from app import app
-from password_security import build_password_history, password_matches_history
+from password_security import (
+    DEFAULT_PASSWORD_RESET_COOLDOWN_SECONDS,
+    build_password_history,
+    normalize_password_policy,
+    password_matches_history,
+)
 
 
 class FakeSnapshot:
@@ -59,6 +64,59 @@ class FakeDatabase:
 
 
 class PasswordPolicyTest(unittest.TestCase):
+    def test_password_reset_cooldown_has_secure_default_and_accepts_admin_value(self):
+        self.assertEqual(
+            normalize_password_policy({})["passwordResetCooldownSeconds"],
+            DEFAULT_PASSWORD_RESET_COOLDOWN_SECONDS,
+        )
+        self.assertEqual(
+            normalize_password_policy({"passwordResetCooldownSeconds": 900})[
+                "passwordResetCooldownSeconds"
+            ],
+            900,
+        )
+
+    def test_admin_can_save_password_reset_email_lock(self):
+        database = FakeDatabase({"system_settings": {}})
+        with (
+            patch("password_policy_api._admin_identity", return_value={"uid": "admin-uid"}),
+            patch("password_policy_api.firestore.client", return_value=database),
+        ):
+            response = app.test_client().put(
+                "/api/admin/password-policy",
+                json={
+                    "passwordAgeEnabled": True,
+                    "maxAgeSeconds": 86400,
+                    "historyCount": 5,
+                    "passwordResetProtectionEnabled": True,
+                    "passwordResetCooldownSeconds": 600,
+                    "passwordResetMaxRequests": 4,
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        saved = database.data["system_settings"]["password_policy"]
+        self.assertEqual(saved["passwordResetCooldownSeconds"], 600)
+
+    def test_admin_cannot_set_email_lock_below_safety_minimum(self):
+        with patch(
+            "password_policy_api._admin_identity",
+            return_value={"uid": "admin-uid"},
+        ):
+            response = app.test_client().put(
+                "/api/admin/password-policy",
+                json={
+                    "passwordAgeEnabled": True,
+                    "maxAgeSeconds": 86400,
+                    "historyCount": 5,
+                    "passwordResetProtectionEnabled": True,
+                    "passwordResetCooldownSeconds": 30,
+                    "passwordResetMaxRequests": 3,
+                },
+            )
+
+        self.assertEqual(response.status_code, 400)
+
     def test_admin_is_exempt_from_password_age_policy(self):
         with patch("password_policy_api._current_identity", return_value={
             "uid": "admin-uid", "email": "admin@example.com", "role": "admin"

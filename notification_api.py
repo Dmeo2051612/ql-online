@@ -5,6 +5,7 @@ import queue
 import re
 import time
 import unicodedata
+import uuid
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 
@@ -59,6 +60,42 @@ def _current_identity():
 def _admin_identity():
     identity = _current_identity()
     return identity if identity and identity["role"] == "admin" else None
+
+
+def _student_identity():
+    identity = _current_identity()
+    return identity if identity and identity["role"] == "sinhvien" else None
+
+
+def _calendar_note_payload(payload):
+    date = str(payload.get("ngay") or "").strip()
+    note_time = str(payload.get("gio") or "").strip()
+    content = str(payload.get("noidung") or "").strip()
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+        raise ValueError("Ngày ghi chú không hợp lệ.")
+    try:
+        datetime.strptime(date, "%Y-%m-%d")
+    except ValueError as exc:
+        raise ValueError("Ngày ghi chú không tồn tại.") from exc
+    if note_time and not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", note_time):
+        raise ValueError("Giờ ghi chú không hợp lệ.")
+    if not content:
+        raise ValueError("Nội dung ghi chú không được để trống.")
+    if len(content) > 120:
+        raise ValueError("Nội dung ghi chú tối đa 120 ký tự.")
+    return {"ngay": date, "gio": note_time, "noidung": content}
+
+
+def _serialize_calendar_note(snapshot):
+    data = snapshot.to_dict() or {}
+    created_at = data.get("createdAt")
+    return {
+        "id": snapshot.id,
+        "ngay": str(data.get("ngay") or ""),
+        "gio": str(data.get("gio") or ""),
+        "noidung": str(data.get("noidung") or ""),
+        "createdAtMillis": _timestamp_millis(created_at),
+    }
 
 
 @notification_api_bp.post("/api/admin/students")
@@ -226,6 +263,132 @@ LOCAL_TIMEZONE = timezone(timedelta(hours=7), name="Asia/Ho_Chi_Minh")
 
 def _timestamp_millis(value):
     return int(value.timestamp() * 1000) if isinstance(value, datetime) else 0
+
+
+@notification_api_bp.get("/api/student/calendar-notes")
+def list_calendar_notes():
+    try:
+        identity = _student_identity()
+    except Exception:
+        return jsonify(error="Phiên đăng nhập không hợp lệ."), 401
+    if not identity:
+        return jsonify(error="Chỉ sinh viên được xem ghi chú lịch."), 403
+
+    documents = (
+        firestore.client().collection("calendar_notes")
+        .where("ownerUid", "==", identity["uid"])
+        .stream()
+    )
+    notes = [_serialize_calendar_note(document) for document in documents]
+    notes.sort(key=lambda item: (item["ngay"], item["gio"], item["createdAtMillis"]))
+    return jsonify(notes=notes)
+
+
+@notification_api_bp.post("/api/student/calendar-notes")
+def create_calendar_note():
+    try:
+        identity = _student_identity()
+    except Exception:
+        return jsonify(error="Phiên đăng nhập không hợp lệ."), 401
+    if not identity:
+        return jsonify(error="Chỉ sinh viên được tạo ghi chú lịch."), 403
+
+    try:
+        note = _calendar_note_payload(request.get_json(silent=True) or {})
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 400
+
+    database = firestore.client()
+    existing = (
+        database.collection("calendar_notes")
+        .where("ownerUid", "==", identity["uid"])
+        .stream()
+    )
+    normalized_content = note["noidung"].casefold()
+    for document in existing:
+        data = document.to_dict() or {}
+        if (
+            str(data.get("ngay") or "") == note["ngay"]
+            and str(data.get("gio") or "") == note["gio"]
+            and str(data.get("noidung") or "").strip().casefold() == normalized_content
+        ):
+            return jsonify(error="Ghi chú này đã tồn tại trong lịch."), 409
+
+    note_id = uuid.uuid4().hex
+    reference = database.collection("calendar_notes").document(note_id)
+    reference.set({
+        **note,
+        "ownerUid": identity["uid"],
+        "studentCode": identity["masv"],
+        "createdAt": firestore.SERVER_TIMESTAMP,
+        "updatedAt": firestore.SERVER_TIMESTAMP,
+    })
+    return jsonify(note={"id": note_id, **note, "createdAtMillis": int(time.time() * 1000)}), 201
+
+
+@notification_api_bp.delete("/api/student/calendar-notes/<note_id>")
+def delete_calendar_note(note_id):
+    try:
+        identity = _student_identity()
+    except Exception:
+        return jsonify(error="Phiên đăng nhập không hợp lệ."), 401
+    if not identity:
+        return jsonify(error="Chỉ sinh viên được xóa ghi chú lịch."), 403
+
+    reference = firestore.client().collection("calendar_notes").document(note_id)
+    snapshot = reference.get()
+    if not snapshot.exists:
+        return jsonify(error="Không tìm thấy ghi chú."), 404
+    if str((snapshot.to_dict() or {}).get("ownerUid") or "") != identity["uid"]:
+        return jsonify(error="Bạn không có quyền xóa ghi chú này."), 403
+    reference.delete()
+    return jsonify(success=True)
+
+
+@notification_api_bp.get("/api/notification-read-state")
+def get_notification_read_state():
+    try:
+        identity = _current_identity()
+    except Exception:
+        return jsonify(error="Phiên đăng nhập không hợp lệ."), 401
+    if not identity:
+        return jsonify(error="Bạn cần đăng nhập."), 401
+
+    snapshot = (
+        firestore.client().collection("notification_read_states")
+        .document(identity["uid"])
+        .get()
+    )
+    data = snapshot.to_dict() if snapshot.exists else {}
+    read_ids = data.get("readIds") if isinstance(data, dict) else []
+    return jsonify(readIds=[str(item) for item in (read_ids or [])][-500:])
+
+
+@notification_api_bp.post("/api/notifications/<notification_id>/read")
+def mark_notification_read(notification_id):
+    try:
+        identity = _current_identity()
+    except Exception:
+        return jsonify(error="Phiên đăng nhập không hợp lệ."), 401
+    if not identity:
+        return jsonify(error="Bạn cần đăng nhập."), 401
+    if not re.fullmatch(r"[A-Za-z0-9._:-]{1,180}", notification_id):
+        return jsonify(error="Mã thông báo không hợp lệ."), 400
+
+    reference = (
+        firestore.client().collection("notification_read_states")
+        .document(identity["uid"])
+    )
+    snapshot = reference.get()
+    data = snapshot.to_dict() if snapshot.exists else {}
+    read_ids = [str(item) for item in ((data or {}).get("readIds") or [])]
+    if notification_id not in read_ids:
+        read_ids.append(notification_id)
+    reference.set({
+        "readIds": read_ids[-500:],
+        "updatedAt": firestore.SERVER_TIMESTAMP,
+    }, merge=True)
+    return jsonify(success=True)
 
 
 def _normalize_identity_text(value):

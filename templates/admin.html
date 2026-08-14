@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#0f172a">
     <title>Quản trị — QL Online</title>
 
-    <link rel="stylesheet" href="/static/css/admin.css?v=17">
+    <link rel="stylesheet" href="/static/css/admin.css?v=19">
     <link rel="stylesheet" href="/static/css/portal-shell.css?v=11">
     <script defer src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
 </head>
@@ -410,31 +410,79 @@
             <div class="section-header">
                 <div>
                     <h2>Chính sách mật khẩu</h2>
-                    <p>Quy định thời hạn và Password History Value cho tài khoản sinh viên, giáo viên.</p>
+                    <p>Quy định thời hạn, Password History Value và chống lạm dụng OTP quên mật khẩu.</p>
                 </div>
             </div>
             <form id="password-policy-form" class="security-policy-card">
                 <div class="security-policy-heading">
                     <div>
-                        <strong>Tuổi tối đa của mật khẩu</strong>
-                        <p>Đặt cả ba giá trị bằng 0 để tắt hết hạn mật khẩu. Hệ thống cảnh báo trước 1 giờ.</p>
+                        <strong>Thiết lập bảo mật tài khoản</strong>
+                        <p>Áp dụng cho tài khoản sinh viên và giáo viên; tài khoản admin được miễn chính sách tuổi mật khẩu.</p>
                     </div>
                     <span class="security-policy-badge" id="password-policy-summary">Đang tải...</span>
                 </div>
-                <div class="security-policy-grid">
-                    <label>Giờ
-                        <input id="password-age-hours" type="number" min="0" max="87600" step="1" required>
-                    </label>
-                    <label>Phút
-                        <input id="password-age-minutes" type="number" min="0" max="59" step="1" required>
-                    </label>
-                    <label>Giây
-                        <input id="password-age-seconds" type="number" min="0" max="59" step="1" required>
-                    </label>
-                    <label>Password History Value
-                        <input id="password-history-count" type="number" min="0" max="24" step="1" required>
-                        <small>Số mật khẩu gần nhất không được tái sử dụng, tối đa 24.</small>
-                    </label>
+                <div class="security-policy-layout">
+                    <article class="security-policy-group policy-module">
+                        <label class="policy-module-toggle" for="password-age-enabled">
+                            <input id="password-age-enabled" type="checkbox" aria-controls="password-age-settings" aria-expanded="true" checked>
+                            <span class="policy-checkmark" aria-hidden="true">✓</span>
+                            <span>
+                                <strong>Password Age</strong>
+                                <small>Giới hạn tuổi mật khẩu và ngăn tái sử dụng mật khẩu cũ.</small>
+                            </span>
+                        </label>
+                        <div class="policy-module-content" id="password-age-settings">
+                            <div class="policy-setting-block">
+                                <div class="policy-group-heading">
+                                    <strong>Tuổi tối đa của mật khẩu</strong>
+                                    <small>Hệ thống cảnh báo trước 1 giờ và yêu cầu đổi mật khẩu khi hết hạn.</small>
+                                </div>
+                                <div class="policy-duration-fields">
+                                    <label><span>Giờ</span><input id="password-age-hours" type="number" min="0" max="87600" step="1" required></label>
+                                    <label><span>Phút</span><input id="password-age-minutes" type="number" min="0" max="59" step="1" required></label>
+                                    <label><span>Giây</span><input id="password-age-seconds" type="number" min="0" max="59" step="1" required></label>
+                                </div>
+                            </div>
+                            <div class="policy-setting-block policy-history-block">
+                                <div class="policy-group-heading">
+                                    <strong>Password History Value</strong>
+                                    <small>Số mật khẩu gần nhất không được tái sử dụng, tối đa 24.</small>
+                                </div>
+                                <label class="policy-single-field"><span>History Value</span><input id="password-history-count" type="number" min="0" max="24" step="1" required></label>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="security-policy-group policy-module">
+                        <label class="policy-module-toggle" for="password-reset-protection-enabled">
+                            <input id="password-reset-protection-enabled" type="checkbox" aria-controls="password-reset-protection-settings" aria-expanded="true" checked>
+                            <span class="policy-checkmark" aria-hidden="true">✓</span>
+                            <span>
+                                <strong>Bảo vệ gửi OTP quên mật khẩu</strong>
+                                <small>Khóa yêu cầu mới khi đạt giới hạn gửi liên tiếp hoặc đã đổi mật khẩu thành công.</small>
+                            </span>
+                        </label>
+                        <div class="policy-module-content policy-reset-content" id="password-reset-protection-settings">
+                            <div class="policy-setting-block">
+                                <div class="policy-group-heading">
+                                    <strong>Thời gian khóa email</strong>
+                                    <small>Bộ đếm liên tiếp vẫn được lưu khi F5, đóng form hoặc đổi thiết bị. Tối thiểu 60 giây, tối đa 24 giờ.</small>
+                                </div>
+                                <div class="policy-duration-fields">
+                                    <label><span>Giờ</span><input id="password-reset-lock-hours" type="number" min="0" max="24" step="1" required></label>
+                                    <label><span>Phút</span><input id="password-reset-lock-minutes" type="number" min="0" max="59" step="1" required></label>
+                                    <label><span>Giây</span><input id="password-reset-lock-seconds" type="number" min="0" max="59" step="1" required></label>
+                                </div>
+                            </div>
+                            <div class="policy-setting-block policy-request-limit-block">
+                                <div class="policy-group-heading">
+                                    <strong>Giới hạn gửi liên tiếp</strong>
+                                    <small>Lần gửi cuối trong giới hạn vẫn tạo OTP; sau đó email mới bị khóa.</small>
+                                </div>
+                                <label class="policy-single-field"><span>Số lần gửi OTP</span><input id="password-reset-max-requests" type="number" min="1" max="20" step="1" required></label>
+                            </div>
+                        </div>
+                    </article>
                 </div>
                 <p class="form-error" id="password-policy-error" role="alert"></p>
                 <div class="security-policy-actions">
@@ -744,17 +792,18 @@
      class="modal-overlay"
      hidden>
 
-    <div class="modal-card">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="course-modal-title">
 
         <div class="modal-header">
             <div>
-                <h2>Mở lớp môn</h2>
+                <h2 id="course-modal-title">Mở lớp môn</h2>
                 <p>Nhập thông tin lớp được mở trong học kỳ.</p>
             </div>
 
             <button type="button"
                     id="close-course-modal-button"
-                    class="modal-close-button">
+                    class="modal-close-button"
+                    aria-label="Đóng">
                 &times;
             </button>
         </div>
@@ -1133,10 +1182,11 @@
 </div>
 
 
+<script src="/static/js/accessibility.js?v=1"></script>
 <script type="module" src="/static/js/admin-firebase.js"></script>
-<script type="module" src="/static/js/admin.js?v=23"></script>
+<script type="module" src="/static/js/admin.js?v=26"></script>
 <script type="module" src="/static/js/admin-dashboard.js?v=5"></script>
-<script type="module" src="/static/js/portal-shell.js?v=16"></script>
+<script type="module" src="/static/js/portal-shell.js?v=17"></script>
 
 
 </body>

@@ -32,7 +32,11 @@ def them_bao_mat_headers(response):
         "https://firestore.googleapis.com https://identitytoolkit.googleapis.com; "
         "style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data: blob:; "
-        "font-src 'self';"
+        "font-src 'self'; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'; "
+        "frame-ancestors 'none';"
     )
     return response
 

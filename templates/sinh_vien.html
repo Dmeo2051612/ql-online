@@ -269,8 +269,11 @@
 
                 <form id="calendar-note-form" class="calendar-note-form">
                     <h3>Thêm ghi chú</h3>
+                    <label class="sr-only" for="calendar-note-date">Ngày ghi chú</label>
                     <input type="date" id="calendar-note-date" required aria-label="Ngày ghi chú">
+                    <label class="sr-only" for="calendar-note-time">Giờ ghi chú</label>
                     <input type="time" id="calendar-note-time" aria-label="Giờ ghi chú">
+                    <label class="sr-only" for="calendar-note-content">Nội dung ghi chú</label>
                     <input type="text" id="calendar-note-content" maxlength="120" placeholder="Ví dụ: Nộp bài tập nhóm" required>
                     <button type="submit">+ Thêm</button>
                 </form>
@@ -297,9 +300,9 @@
             <span class="ai-mascot-shadow"></span>
         </span>
     </button>
-    <aside id="ai-chatbox" class="ai-chatbox" hidden aria-label="Trợ lý học vụ AI">
+    <aside id="ai-chatbox" class="ai-chatbox" hidden role="region" aria-labelledby="ai-chat-title">
         <header class="ai-chat-header">
-            <div><span>🤖</span><div><strong>QL Assistant</strong><small>Trợ lý học vụ</small></div></div>
+            <div><span>🤖</span><div><strong id="ai-chat-title">QL Assistant</strong><small>Trợ lý học vụ</small></div></div>
             <button type="button" id="ai-chat-close" aria-label="Đóng">×</button>
         </header>
         <div id="ai-chat-messages" class="ai-chat-messages" aria-live="polite"></div>
@@ -315,14 +318,19 @@
         </form>
     </aside>
 
+    <script src="{{ url_for('static', filename='js/accessibility.js') }}?v=1"></script>
+    <script src="{{ url_for('static', filename='js/student-notes.js') }}?v=1"></script>
     <script
-        src="{{ url_for('static', filename='js/sinh_vien.js') }}?v=24"
+        src="{{ url_for('static', filename='js/sinh_vien.js') }}?v=25"
+    ></script>
+    <script
+        src="{{ url_for('static', filename='js/student-assistant.js') }}?v=1"
     ></script>
 
     <script
         type="module"
         src="{{ url_for('static', filename='js/sinhvien-firebase.js') }}"
     ></script>
-    <script type="module" src="{{ url_for('static', filename='js/portal-shell.js') }}?v=16"></script>
+    <script type="module" src="{{ url_for('static', filename='js/portal-shell.js') }}?v=17"></script>
 </body>
 </html>
